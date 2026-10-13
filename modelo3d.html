@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor 3D - Invu 2 Verde</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; }
+        #canvas-container { width: 100vw; height: calc(100vh - 73px); }
+        #info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-family: sans-serif;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- Header -->
+    <header class="bg-emerald-700 text-white shadow-md z-10">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i class="fa-solid fa-cube"></i> Modelo Tridimensional - INVU 2
+            </h1>
+            <nav class="space-x-4">
+                <a href="index.html" class="hover:text-emerald-200">Inicio</a>
+                <a href="mapa.html" class="hover:text-emerald-200">Mapa</a>
+                <a href="modelo3d.html" class="underline font-semibold">Visor 3D</a>
+            </nav>
+        </div>
+    </header>
+
+    <div id="canvas-container"></div>
+
+    <div id="info-panel">
+        <h3 class="font-bold text-emerald-400">Modelo Fotogramétrico 3D</h3>
+        <p class="text-xs text-slate-300 mt-1">Usa Clic Izquierdo + Arrastrar para rotar.</p>
+        <p class="text-xs text-slate-300">Usa Clic Derecho + Arrastrar para moverte.</p>
+        <p class="text-xs text-slate-300">Usa la rueda del ratón para hacer zoom.</p>
+    </div>
+
+    <!-- Importar Three.js y cargadores vía ES Modules -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+        import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+
+        const container = document.getElementById('canvas-container');
+
+        // 1. Escena, Cámara y Renderizador
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 2000);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        // 2. Controles de órbita
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // 3. Iluminación general
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        directionalLight.position.set(50, 100, 50);
+        scene.add(directionalLight);
+
+        // 4. Cargar Materiales (.mtl) y Modelo (.obj)
+        const mtlLoader = new MTLLoader();
+        mtlLoader.setPath('./assets/models/');
+        mtlLoader.load('odm_textured_model_geo.mtl', function (materials) {
+            materials.preload();
+            
+            const objLoader = new OBJLoader();
+            objLoader.setMaterials(materials);
+            objLoader.setPath('./assets/models/');
+            objLoader.load('odm_textured_model_geo.obj', function (object) {
+                scene.add(object);
+                
+                // Centrar cámara automáticamente en el modelo 3D
+                const box = new THREE.Box3().setFromObject(object);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+                
+                controls.target.copy(center);
+                camera.position.set(center.x, center.y + size.y * 1.5, center.z + size.z * 1.5);
+                controls.update();
+
+            }, (xhr) => {
+                console.log((xhr.loaded / xhr.total * 100) + '% cargado del modelo 3D');
+            }, (error) => {
+                console.error('Error al cargar el archivo OBJ:', error);
+            });
+        });
+
+        // Responsivo
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>

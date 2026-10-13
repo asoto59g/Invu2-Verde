@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Interactivo - Invu 2 Verde</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS y JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map { height: calc(100vh - 73px); width: 100%; }
+    </style>
+</head>
+<body class="bg-slate-50 flex flex-col h-screen overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-emerald-700 text-white shadow-md z-10">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i class="fa-solid fa-map-location-dot"></i> Ortofoto y Red Vectorial - INVU 2
+            </h1>
+            <nav class="space-x-4">
+                <a href="index.html" class="hover:text-emerald-200">Inicio</a>
+                <a href="mapa.html" class="underline font-semibold">Mapa</a>
+                <a href="modelo3d.html" class="hover:text-emerald-200">Visor 3D</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Contenedor del Mapa -->
+    <div id="map"></div>
+
+    <script>
+        // 1. Inicializar el mapa centrado en Barrio INVU 2, Liberia
+        const map = L.map('map').setView([10.635, -85.438], 17);
+
+        // 2. Capas Base
+        const ortofoto = L.tileLayer('./assets/tiles/{z}/{x}/{y}.png', {
+            minZoom: 16,
+            maxZoom: 21,
+            attribution: 'Ortofoto 4 cm/px - INVU 2 (ABC Geomática)'
+        }).addTo(map);
+
+        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        });
+
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 22,
+            attribution: '&copy; OpenStreetMap contributors'
+        });
+
+        // 3. Grupos de Capas Vectoriales
+        const areasVerdesLayer = L.layerGroup();
+        const parquesLayer = L.layerGroup();
+        const acerasLayer = L.layerGroup();
+        const callesLayer = L.layerGroup();
+        const pluvialLayer = L.layerGroup();
+        const sanitarioLayer = L.layerGroup();
+
+        // 4. Estilos personalizados para cada temática
+        const estiloVerde = { color: "#15803d", fillColor: "#22c55e", fillOpacity: 0.4, weight: 1 };
+        const estiloParques = { color: "#047857", fillColor: "#10b981", fillOpacity: 0.6, weight: 2 };
+        const estiloAceras = { color: "#94a3b8", weight: 1.5 };
+        const estiloCalles = { color: "#334155", weight: 3 };
+        const estiloPluvial = { color: "#0284c7", weight: 2 };
+        const estiloSanitario = { color: "#dc2626", weight: 2 };
+
+        // 5. Cargar archivos GeoJSON de forma asíncrona (AQUÍ ESTÁN LOS NOMBRES CORREGIDOS)
+        fetch('./assets/areas_verdes.json')
+            .then(res => res.json())
+            .then(data => { L.geoJSON(data, { style: estiloVerde }).addTo(areasVerdesLayer); });
+
+        fetch('./assets/parques.geojson')
+            .then(res => res.json())
+            .then(data => { L.geoJSON(data, { style: estiloParques }).addTo(parquesLayer); parquesLayer.addTo(map); });
+
+        fetch('./assets/aceras.geojson')
+            .then(res => res.json())
+            .then(data => { L.geoJSON(data, { style: estiloAceras }).addTo(acerasLayer); });
+
+        fetch('./assets/Calles.geojson')
+            .then(res => res.json())
+            .then(data => { L.geoJSON(data, { style: estiloCalles }).addTo(callesLayer); callesLayer.addTo(map); });
+
+        fetch('./assets/alcantpluvial.geojson')
+            .then(res => res.json())
+            .then(data => { L.geoJSON(data, { style: estiloPluvial }).addTo(pluvialLayer); });
+
+        fetch('./assets/alcantsanitario.geojson')
+            .then(res => res.json())
+            .then(data => { L.geoJSON(data, { style: estiloSanitario }).addTo(sanitarioLayer); });
+
+        // 6. Panel de Control de Capas (Layers Control)
+        const baseMaps = {
+            "Ortofoto Dron (4 cm/px)": ortofoto,
+            "Satélite General (Esri)": satellite,
+            "OpenStreetMap": osm
+        };
+
+        const overlayMaps = {
+            "Calles": callesLayer,
+            "Parques": parquesLayer,
+            "Áreas Verdes": areasVerdesLayer,
+            "Aceras": acerasLayer,
+            "Alcantarillado Pluvial": pluvialLayer,
+            "Alcantarillado Sanitario": sanitarioLayer
+        };
+
+        L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
+    </script>
+</body>
+</html>
