@@ -33,8 +33,14 @@
     <div id="map"></div>
 
     <script>
-        // 1. Inicializar el mapa centrado en Barrio INVU 2, Liberia
-        const map = L.map('map').setView([10.635, -85.438], 17);
+        // 1. Inicializar el mapa centrado en Barrio INVU 2, Liberia, con límites de cámara
+        const map = L.map('map', {
+            maxBounds: [
+                [10.630, -85.445], // Esquina suroeste (aproximada)
+                [10.645, -85.425]  // Esquina noreste (aproximada)
+            ],
+            maxBoundsViscosity: 1.0 // Evita que el usuario arrastre el mapa fuera de Liberia
+        }).setView([10.638, -85.435], 17);
 
         // 2. Capas Base
         const ortofoto = L.tileLayer('./assets/tiles/{z}/{x}/{y}.png', {
@@ -54,6 +60,7 @@
         });
 
         // 3. Grupos de Capas Vectoriales
+        const perimetroLayer = L.layerGroup();
         const areasVerdesLayer = L.layerGroup();
         const parquesLayer = L.layerGroup();
         const acerasLayer = L.layerGroup();
@@ -62,6 +69,7 @@
         const sanitarioLayer = L.layerGroup();
 
         // 4. Estilos personalizados para cada temática
+        const estiloPerimetro = { color: "#fbbf24", weight: 4, fillOpacity: 0, dashArray: "5, 5" }; // Amarillo punteado sin relleno
         const estiloVerde = { color: "#15803d", fillColor: "#22c55e", fillOpacity: 0.4, weight: 1 };
         const estiloParques = { color: "#047857", fillColor: "#10b981", fillOpacity: 0.6, weight: 2 };
         const estiloAceras = { color: "#94a3b8", weight: 1.5 };
@@ -69,10 +77,14 @@
         const estiloPluvial = { color: "#0284c7", weight: 2 };
         const estiloSanitario = { color: "#dc2626", weight: 2 };
 
-        // 5. Cargar archivos GeoJSON de forma asíncrona (AQUÍ ESTÁN LOS NOMBRES CORREGIDOS)
+        // 5. Cargar archivos GeoJSON de forma asíncrona y encenderlos por defecto con .addTo(map)
+        fetch('./assets/perimetro.geojson')
+            .then(res => res.json())
+            .then(data => { L.geoJSON(data, { style: estiloPerimetro }).addTo(perimetroLayer); perimetroLayer.addTo(map); });
+
         fetch('./assets/areas_verdes.json')
             .then(res => res.json())
-            .then(data => { L.geoJSON(data, { style: estiloVerde }).addTo(areasVerdesLayer); });
+            .then(data => { L.geoJSON(data, { style: estiloVerde }).addTo(areasVerdesLayer); areasVerdesLayer.addTo(map); });
 
         fetch('./assets/parques.geojson')
             .then(res => res.json())
@@ -80,7 +92,7 @@
 
         fetch('./assets/aceras.geojson')
             .then(res => res.json())
-            .then(data => { L.geoJSON(data, { style: estiloAceras }).addTo(acerasLayer); });
+            .then(data => { L.geoJSON(data, { style: estiloAceras }).addTo(acerasLayer); acerasLayer.addTo(map); });
 
         fetch('./assets/Calles.geojson')
             .then(res => res.json())
@@ -88,11 +100,11 @@
 
         fetch('./assets/alcantpluvial.geojson')
             .then(res => res.json())
-            .then(data => { L.geoJSON(data, { style: estiloPluvial }).addTo(pluvialLayer); });
+            .then(data => { L.geoJSON(data, { style: estiloPluvial }).addTo(pluvialLayer); pluvialLayer.addTo(map); });
 
         fetch('./assets/alcantsanitario.geojson')
             .then(res => res.json())
-            .then(data => { L.geoJSON(data, { style: estiloSanitario }).addTo(sanitarioLayer); });
+            .then(data => { L.geoJSON(data, { style: estiloSanitario }).addTo(sanitarioLayer); sanitarioLayer.addTo(map); });
 
         // 6. Panel de Control de Capas (Layers Control)
         const baseMaps = {
@@ -102,6 +114,7 @@
         };
 
         const overlayMaps = {
+            "Límite INVU 2": perimetroLayer,
             "Calles": callesLayer,
             "Parques": parquesLayer,
             "Áreas Verdes": areasVerdesLayer,
