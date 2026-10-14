@@ -652,8 +652,9 @@
             const isHidden = content.style.display === 'none';
             content.style.display = isHidden ? 'block' : 'none';
             document.getElementById('icon-legend-cajetin').className = isHidden ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
-            document.getElementById('txt-legend-cajetin').textContent = isHidden ? 'Ocultar' : 'Mostrar';
         });
+    }
+
     initMap();
 
     // ─────────────────────────────────────────────────────────────
