@@ -265,26 +265,35 @@
         </div>
     </header>
 
-    <!-- Barra flotante de herramientas (Medición + GPS) -->
-    <div style="position:absolute; top:75px; left:12px; z-index:1000;">
-        <div class="toolbar-panel">
-            <button id="btn-gps" class="tool-btn" title="Activar ubicación GPS en tiempo real">
-                <i class="fa-solid fa-location-crosshairs text-sky-400"></i>
-                <span class="hidden sm:inline">GPS</span>
-            </button>
-            <div style="width:1px; background:rgba(255,255,255,0.15); margin:2px 0;"></div>
-            <button id="btn-measure-dist" class="tool-btn" title="Medir longitud entre puntos">
-                <i class="fa-solid fa-ruler text-emerald-400"></i>
-                <span class="hidden sm:inline">Medir Distancia</span>
-            </button>
-            <button id="btn-measure-area" class="tool-btn" title="Medir polígono o área">
-                <i class="fa-solid fa-draw-polygon text-amber-400"></i>
-                <span class="hidden sm:inline">Medir Área</span>
-            </button>
-            <button id="btn-measure-clear" class="tool-btn danger" title="Limpiar mediciones" style="display:none;">
-                <i class="fa-solid fa-trash-can"></i>
-                <span class="hidden sm:inline">Borrar</span>
-            </button>
+    <!-- Barra flotante de herramientas colapsable (Medición + GPS) ubicada debajo del zoom -->
+    <div style="position:absolute; top:148px; left:12px; z-index:1000;" id="toolbar-wrapper">
+        <div class="toolbar-panel" style="flex-direction: column; gap: 4px; padding: 6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding: 2px 4px 5px 4px; border-bottom: 1px solid rgba(255,255,255,0.15); cursor:pointer;" id="toolbar-header">
+                <span style="font-size:11px; font-weight:700; color:#38bdf8; display:flex; align-items:center; gap:5px;">
+                    <i class="fa-solid fa-toolbox text-sky-400"></i> Herramientas
+                </span>
+                <button type="button" id="btn-toggle-toolbar" class="cajetin-btn" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#cbd5e1; padding:1px 6px; font-size:10px;" title="Ocultar / Mostrar herramientas">
+                    <i class="fa-solid fa-chevron-up" id="icon-toolbar-toggle"></i> <span id="txt-toolbar-toggle">Ocultar</span>
+                </button>
+            </div>
+            <div id="toolbar-tools-body" style="display:flex; flex-direction:column; gap:4px; padding-top:2px;">
+                <button id="btn-gps" class="tool-btn" title="Activar ubicación GPS en tiempo real">
+                    <i class="fa-solid fa-location-crosshairs text-sky-400"></i>
+                    <span>GPS en Vivo</span>
+                </button>
+                <button id="btn-measure-dist" class="tool-btn" title="Medir longitud entre puntos">
+                    <i class="fa-solid fa-ruler text-emerald-400"></i>
+                    <span>Medir Distancia</span>
+                </button>
+                <button id="btn-measure-area" class="tool-btn" title="Medir polígono o área">
+                    <i class="fa-solid fa-draw-polygon text-amber-400"></i>
+                    <span>Medir Área</span>
+                </button>
+                <button id="btn-measure-clear" class="tool-btn danger" title="Limpiar mediciones" style="display:none;">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span>Borrar Medición</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -645,9 +654,27 @@
             document.getElementById('icon-legend-cajetin').className = isHidden ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
             document.getElementById('txt-legend-cajetin').textContent = isHidden ? 'Ocultar' : 'Mostrar';
         });
+    initMap();
+
+    // ─────────────────────────────────────────────────────────────
+    // CONTROL DE COLAPSO DEL CAJETÍN DE HERRAMIENTAS (MEDICIÓN + GPS)
+    // ─────────────────────────────────────────────────────────────
+    const btnToggleToolbar = document.getElementById('btn-toggle-toolbar');
+    const toolbarHeader = document.getElementById('toolbar-header');
+    const toolbarBody = document.getElementById('toolbar-tools-body');
+    const iconToolbar = document.getElementById('icon-toolbar-toggle');
+    const txtToolbar = document.getElementById('txt-toolbar-toggle');
+
+    function toggleToolsCajetin(e) {
+        if (e) e.stopPropagation();
+        const isHidden = toolbarBody.style.display === 'none';
+        toolbarBody.style.display = isHidden ? 'flex' : 'none';
+        iconToolbar.className = isHidden ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+        txtToolbar.textContent = isHidden ? 'Ocultar' : 'Mostrar';
     }
 
-    initMap();
+    if (btnToggleToolbar) btnToggleToolbar.addEventListener('click', toggleToolsCajetin);
+    if (toolbarHeader) toolbarHeader.addEventListener('click', toggleToolsCajetin);
 
     // ─────────────────────────────────────────────────────────────
     // 8. GEOLOCALIZACIÓN GPS (TELÉFONO / DISPOSITIVO)
