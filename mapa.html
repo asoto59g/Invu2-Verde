@@ -10,13 +10,13 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        #map { height: calc(100vh - 73px); width: 100%; }
+        #map { height: calc(100vh - 73px); width: 100%; z-index: 1; }
     </style>
 </head>
 <body class="bg-slate-50 flex flex-col h-screen overflow-hidden">
 
     <!-- Header -->
-    <header class="bg-emerald-700 text-white shadow-md z-10">
+    <header class="bg-emerald-700 text-white shadow-md z-10 relative">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <h1 class="text-xl font-bold flex items-center gap-2">
                 <i class="fa-solid fa-map-location-dot"></i> Ortofoto y Red Vectorial - INVU 2
@@ -33,43 +33,29 @@
     <div id="map"></div>
 
     <script>
-        // 1. Inicializar el mapa centrado en Barrio INVU 2, Liberia, con límites de cámara
-        const map = L.map('map', {
-            maxBounds: [
-                [10.630, -85.445], // Esquina suroeste (aproximada)
-                [10.645, -85.425]  // Esquina noreste (aproximada)
-            ],
-            maxBoundsViscosity: 1.0 // Evita que el usuario arrastre el mapa fuera de Liberia
-        }).setView([10.638, -85.435], 17);
+        // 1. Inicializar mapa sin bloqueos restrictivos.
+        // Centro genérico en Liberia, pero lo centraremos en las capas luego.
+        const map = L.map('map').setView([10.638, -85.435], 16);
 
         // 2. Capas Base
         const ortofoto = L.tileLayer('./assets/tiles/{z}/{x}/{y}.png', {
-            minZoom: 16,
-            maxZoom: 21,
+            minZoom: 15,
+            maxZoom: 22,
             attribution: 'Ortofoto 4 cm/px - INVU 2 (ABC Geomática)'
         }).addTo(map);
 
         const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 19,
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            attribution: 'Tiles &copy; Esri'
         });
 
         const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 22,
-            attribution: '&copy; OpenStreetMap contributors'
+            attribution: '&copy; OpenStreetMap'
         });
 
-        // 3. Grupos de Capas Vectoriales
-        const perimetroLayer = L.layerGroup();
-        const areasVerdesLayer = L.layerGroup();
-        const parquesLayer = L.layerGroup();
-        const acerasLayer = L.layerGroup();
-        const callesLayer = L.layerGroup();
-        const pluvialLayer = L.layerGroup();
-        const sanitarioLayer = L.layerGroup();
-
-        // 4. Estilos personalizados para cada temática
-        const estiloPerimetro = { color: "#fbbf24", weight: 4, fillOpacity: 0, dashArray: "5, 5" }; // Amarillo punteado sin relleno
+        // 3. Estilos
+        const estiloPerimetro = { color: "#fbbf24", weight: 4, fillOpacity: 0, dashArray: "5, 5" };
         const estiloVerde = { color: "#15803d", fillColor: "#22c55e", fillOpacity: 0.4, weight: 1 };
         const estiloParques = { color: "#047857", fillColor: "#10b981", fillOpacity: 0.6, weight: 2 };
         const estiloAceras = { color: "#94a3b8", weight: 1.5 };
@@ -77,53 +63,61 @@
         const estiloPluvial = { color: "#0284c7", weight: 2 };
         const estiloSanitario = { color: "#dc2626", weight: 2 };
 
-        // 5. Cargar archivos GeoJSON de forma asíncrona y encenderlos por defecto con .addTo(map)
-        fetch('./assets/perimetro.geojson')
-            .then(res => res.json())
-            .then(data => { L.geoJSON(data, { style: estiloPerimetro }).addTo(perimetroLayer); perimetroLayer.addTo(map); });
+        // 4. Función segura para cargar GeoJSON
+        async function loadGeoJSON(url, style, layerName, addToMap = true) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                
+                const geojsonLayer = L.geoJSON(data, { style: style });
+                if(addToMap) geojsonLayer.addTo(map);
+                
+                // Si es el perímetro, que la cámara haga zoom hacia él
+                if (layerName === "Perímetro") {
+                    map.fitBounds(geojsonLayer.getBounds());
+                }
+                
+                return geojsonLayer;
+            } catch (error) {
+                console.error(`Error cargando ${url}:`, error);
+                return L.layerGroup(); // Retorna capa vacía para no romper el mapa
+            }
+        }
 
-        fetch('./assets/areas_verdes.json')
-            .then(res => res.json())
-            .then(data => { L.geoJSON(data, { style: estiloVerde }).addTo(areasVerdesLayer); areasVerdesLayer.addTo(map); });
+        // 5. Cargar todas las capas
+        async function initializeLayers() {
+            // Nota: Verifica que en tu carpeta assets los nombres sean exactamente estos.
+            const perimetroLayer = await loadGeoJSON('./assets/perimetro.geojson', estiloPerimetro, "Perímetro", true);
+            const areasVerdesLayer = await loadGeoJSON('./assets/areas_verdes.json', estiloVerde, "Áreas Verdes", true);
+            const parquesLayer = await loadGeoJSON('./assets/parques.geojson', estiloParques, "Parques", true);
+            const acerasLayer = await loadGeoJSON('./assets/aceras.geojson', estiloAceras, "Aceras", true);
+            const callesLayer = await loadGeoJSON('./assets/Calles.geojson', estiloCalles, "Calles", true);
+            const pluvialLayer = await loadGeoJSON('./assets/alcantpluvial.geojson', estiloPluvial, "Pluvial", true);
+            const sanitarioLayer = await loadGeoJSON('./assets/alcantsanitario.geojson', estiloSanitario, "Sanitario", true);
 
-        fetch('./assets/parques.geojson')
-            .then(res => res.json())
-            .then(data => { L.geoJSON(data, { style: estiloParques }).addTo(parquesLayer); parquesLayer.addTo(map); });
+            // 6. Control de Capas
+            const baseMaps = {
+                "Ortofoto Dron (4 cm/px)": ortofoto,
+                "Satélite General (Esri)": satellite,
+                "OpenStreetMap": osm
+            };
 
-        fetch('./assets/aceras.geojson')
-            .then(res => res.json())
-            .then(data => { L.geoJSON(data, { style: estiloAceras }).addTo(acerasLayer); acerasLayer.addTo(map); });
+            const overlayMaps = {
+                "Límite INVU 2": perimetroLayer,
+                "Calles": callesLayer,
+                "Parques": parquesLayer,
+                "Áreas Verdes": areasVerdesLayer,
+                "Aceras": acerasLayer,
+                "Alcantarillado Pluvial": pluvialLayer,
+                "Alcantarillado Sanitario": sanitarioLayer
+            };
 
-        fetch('./assets/Calles.geojson')
-            .then(res => res.json())
-            .then(data => { L.geoJSON(data, { style: estiloCalles }).addTo(callesLayer); callesLayer.addTo(map); });
+            L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
+        }
 
-        fetch('./assets/alcantpluvial.geojson')
-            .then(res => res.json())
-            .then(data => { L.geoJSON(data, { style: estiloPluvial }).addTo(pluvialLayer); pluvialLayer.addTo(map); });
-
-        fetch('./assets/alcantsanitario.geojson')
-            .then(res => res.json())
-            .then(data => { L.geoJSON(data, { style: estiloSanitario }).addTo(sanitarioLayer); sanitarioLayer.addTo(map); });
-
-        // 6. Panel de Control de Capas (Layers Control)
-        const baseMaps = {
-            "Ortofoto Dron (4 cm/px)": ortofoto,
-            "Satélite General (Esri)": satellite,
-            "OpenStreetMap": osm
-        };
-
-        const overlayMaps = {
-            "Límite INVU 2": perimetroLayer,
-            "Calles": callesLayer,
-            "Parques": parquesLayer,
-            "Áreas Verdes": areasVerdesLayer,
-            "Aceras": acerasLayer,
-            "Alcantarillado Pluvial": pluvialLayer,
-            "Alcantarillado Sanitario": sanitarioLayer
-        };
-
-        L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
+        // Iniciar la carga
+        initializeLayers();
     </script>
 </body>
 </html>

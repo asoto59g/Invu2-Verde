@@ -5,46 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visor 3D - Invu 2 Verde</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { margin: 0; overflow: hidden; background-color: #0f172a; }
+        body { margin: 0; overflow: hidden; background-color: #1e293b; }
         #canvas-container { width: 100vw; height: calc(100vh - 73px); position: relative; }
         
-        /* Pantalla de Carga */
         #loading-screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #0f172a;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 50;
-            color: #34d399; /* emerald-400 */
-            font-family: sans-serif;
-        }
-        .spinner {
-            border: 4px solid rgba(52, 211, 153, 0.2);
-            width: 50px; height: 50px;
-            border-radius: 50%;
-            border-left-color: #34d399;
-            animation: spin 1s linear infinite;
-            margin-bottom: 15px;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        #info-panel {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            color: white;
-            font-family: sans-serif;
-            background: rgba(15, 23, 42, 0.85);
-            padding: 15px;
-            border-radius: 8px;
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.1);
-            z-index: 10;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #1e293b; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 50; color: #34d399;
         }
     </style>
 </head>
@@ -53,9 +21,7 @@
     <!-- Header -->
     <header class="bg-emerald-700 text-white shadow-md z-10 relative">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold flex items-center gap-2">
-                <i class="fa-solid fa-cube"></i> Modelo Tridimensional - INVU 2
-            </h1>
+            <h1 class="text-xl font-bold">Modelo Tridimensional - INVU 2</h1>
             <nav class="space-x-4">
                 <a href="index.html" class="hover:text-emerald-200">Inicio</a>
                 <a href="mapa.html" class="hover:text-emerald-200">Mapa</a>
@@ -65,23 +31,12 @@
     </header>
 
     <div id="canvas-container">
-        <!-- Pantalla de carga para avisarle al usuario que está bajando 57MB -->
         <div id="loading-screen">
-            <div class="spinner"></div>
-            <h2 class="text-xl font-bold">Cargando Modelo 3D...</h2>
-            <p id="loading-text" class="text-sm text-slate-400 mt-2">Descargando geometría y texturas de alta resolución.</p>
-            <p class="text-xs text-slate-500 mt-1">Esto puede tomar varios minutos dependiendo de tu conexión a internet.</p>
+            <h2 class="text-xl font-bold">Cargando Modelo 3D (Puede tardar minutos)</h2>
+            <p id="loading-text" class="text-slate-300 mt-2">Iniciando descarga...</p>
         </div>
     </div>
 
-    <div id="info-panel">
-        <h3 class="font-bold text-emerald-400">Modelo Fotogramétrico 3D</h3>
-        <p class="text-xs text-slate-300 mt-1"><i class="fa-solid fa-hand-pointer w-4 text-center"></i> Clic Izquierdo + Arrastrar para rotar.</p>
-        <p class="text-xs text-slate-300"><i class="fa-solid fa-arrows-up-down-left-right w-4 text-center"></i> Clic Derecho + Arrastrar para moverte.</p>
-        <p class="text-xs text-slate-300"><i class="fa-solid fa-magnifying-glass w-4 text-center"></i> Rueda del ratón para hacer zoom.</p>
-    </div>
-
-    <!-- Importar Three.js y cargadores vía ES Modules -->
     <script type="importmap">
         {
             "imports": {
@@ -101,115 +56,94 @@
         const loadingScreen = document.getElementById('loading-screen');
         const loadingText = document.getElementById('loading-text');
 
-        // 1. Escena, Cámara y Renderizador
+        // 1. Escena básica
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0f172a); // Fondo color slate-900
+        scene.background = new THREE.Color(0x1e293b);
 
-        // Cámara ajustada para ver desde más lejos inicialmente
-        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 10000);
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100000);
         
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimización de rendimiento
-        // Tonemapping para que los colores de la textura se vean reales
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.0;
+        renderer.setPixelRatio(window.devicePixelRatio);
         container.appendChild(renderer.domElement);
 
-        // 2. Controles de órbita
         const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
 
-        // 3. Iluminación (Potenciada para asegurar que el modelo no se vea negro)
-        const ambientLight = new THREE.AmbientLight(0xffffff, 2.5); // Luz general fuerte
-        scene.add(ambientLight);
+        // Luces fuertes
+        scene.add(new THREE.AmbientLight(0xffffff, 3.0));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+        dirLight.position.set(100, 200, 50);
+        scene.add(dirLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0);
-        directionalLight.position.set(100, 200, 50);
-        scene.add(directionalLight);
-        
-        const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1.0);
-        directionalLight2.position.set(-100, -50, -50);
-        scene.add(directionalLight2);
+        // 2. Cargadores (Rutas relativas a modelo3d.html)
+        const basePath = './assets/models/';
+        console.log("Iniciando carga desde:", basePath);
 
-        // 4. Cargar Materiales (.mtl) y Modelo (.obj)
         const mtlLoader = new MTLLoader();
-        // ESTA RUTA ES CRÍTICA: Debe coincidir con la ubicación de tus archivos
-        const basePath = './assets/models/'; 
-        
         mtlLoader.setPath(basePath);
+        
         mtlLoader.load('odm_textured_model_geo.mtl', function (materials) {
+            console.log("Material (.mtl) cargado con éxito.");
             materials.preload();
             
-            // Le decimos al OBJLoader que use los materiales encontrados
             const objLoader = new OBJLoader();
             objLoader.setMaterials(materials);
             objLoader.setPath(basePath);
             
             objLoader.load('odm_textured_model_geo.obj', function (object) {
+                console.log("Objeto (.obj) cargado con éxito.");
                 
-                // Si el modelo tiene texturas de una cara, evitar que se vean transparentes por debajo
-                object.traverse(function (child) {
-                    if (child.isMesh && child.material) {
-                        child.material.side = THREE.DoubleSide; 
-                    }
-                });
-
                 scene.add(object);
                 
-                // Mágia matemática: Centrar la cámara exactamente en el modelo, sin importar su escala original
+                // MÁGIA DE REPOSICIONAMIENTO
                 const box = new THREE.Box3().setFromObject(object);
                 const center = box.getCenter(new THREE.Vector3());
                 const size = box.getSize(new THREE.Vector3());
                 
-                // Ajustar el modelo para que su centro geométrico esté en la coordenada (0,0,0) del universo
+                console.log("Centro original del objeto:", center);
+                console.log("Tamaño del objeto:", size);
+
+                // Forzar el modelo al centro (0,0,0)
                 object.position.x = -center.x;
                 object.position.y = -center.y;
                 object.position.z = -center.z;
-                
-                // Mover la cámara hacia atrás y arriba basándonos en el tamaño real del modelo
+
+                // Calcular dónde poner la cámara basado en el tamaño real
                 const maxDim = Math.max(size.x, size.y, size.z);
-                const fov = camera.fov * (Math.PI / 180);
-                let cameraZ = Math.abs(maxDim / 2 * Math.tan(fov * 2));
                 
-                // Vista de pájaro isométrica inicial
-                camera.position.set(0, maxDim * 0.8, cameraZ * 1.2);
+                // Poner la cámara "arriba y atrás"
+                camera.position.set(maxDim * 0.5, maxDim * 1.5, maxDim * 1.5);
                 camera.lookAt(0, 0, 0);
                 controls.target.set(0, 0, 0);
-                controls.maxDistance = maxDim * 5; // Evita que el usuario se aleje al infinito
                 controls.update();
 
-                // Quitar pantalla de carga
                 loadingScreen.style.display = 'none';
 
             }, 
-            // Función de progreso (Progress Bar)
             function (xhr) {
                 if (xhr.lengthComputable) {
                     const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
-                    loadingText.innerText = `Descargando: ${percentComplete}% completado.`;
-                } else {
-                    loadingText.innerText = `Descargando modelo pesado... (Ten paciencia)`;
+                    loadingText.innerText = `Descargando OBJ: ${percentComplete}% completado.`;
                 }
             }, 
-            // Función de error
             function (error) {
-                console.error('Error al cargar el archivo OBJ:', error);
-                loadingText.innerText = 'Error al cargar el modelo 3D. Revisa que el archivo exista.';
-                loadingText.classList.remove('text-slate-400');
-                loadingText.classList.add('text-red-400');
+                console.error("Error cargando el .obj:", error);
+                loadingText.innerText = "Error cargando el modelo (.obj). Revisa la consola.";
+                loadingText.style.color = "red";
             });
+            
+        }, undefined, function(error) {
+            console.error("Error cargando el .mtl:", error);
+            loadingText.innerText = "Error cargando archivo de material (.mtl). Revisa la consola.";
+            loadingText.style.color = "red";
         });
 
-        // 5. Ajuste de ventana Responsivo
         window.addEventListener('resize', () => {
             camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(container.clientWidth, container.clientHeight);
         });
 
-        // 6. Ciclo de Animación (Render Loop)
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
