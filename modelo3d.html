@@ -12,7 +12,7 @@
         #canvas-container { width: 100vw; height: calc(100vh - 61px); position: relative; cursor: grab; }
         #canvas-container:active { cursor: grabbing; }
 
-        /* ── Pantalla de carga estilo Sketchfab ── */
+        /* Pantalla de carga estilo Sketchfab */
         #loading-screen {
             position: absolute; inset: 0;
             background: radial-gradient(circle at center, #1e293b 0%, #0b0f19 100%);
@@ -30,7 +30,7 @@
             border-radius: 4px; width: 0%; transition: width 0.25s ease;
         }
 
-        /* ── Pantalla de error ── */
+        /* Pantalla de error */
         #error-screen {
             position: absolute; inset: 0;
             background: #0b0f19; display: none; flex-direction: column;
@@ -38,7 +38,7 @@
             z-index: 50; color: #f87171; text-align: center; padding: 30px;
         }
 
-        /* ── Barra de navegación inferior tipo Sketchfab ── */
+        /* Barra de navegación inferior tipo Sketchfab */
         .sketchfab-bar {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
             background: rgba(15, 23, 42, 0.88);
@@ -75,7 +75,7 @@
             background: rgba(16, 185, 129, 0.15);
         }
 
-        /* ── Hint de controles ── */
+        /* Hint de controles */
         #help-card {
             position: absolute; top: 16px; left: 16px;
             background: rgba(15, 23, 42, 0.85);
@@ -84,10 +84,10 @@
             color: #cbd5e1; font-size: 11px; line-height: 1.6;
             padding: 10px 14px; border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            display: none; z-index: 20; max-width: 260px;
+            display: none; z-index: 20; max-width: 270px;
         }
 
-        /* ── Indicador de pivote al hacer doble clic ── */
+        /* Indicador de pivote al hacer doble clic */
         #pivot-indicator {
             position: absolute; width: 14px; height: 14px;
             border: 2px solid #34d399; border-radius: 50%;
@@ -117,7 +117,6 @@
     </header>
 
     <div id="canvas-container">
-
         <!-- Pantalla de carga -->
         <div id="loading-screen">
             <div class="relative flex items-center justify-center">
@@ -143,10 +142,10 @@
         <!-- Tarjeta de ayuda tipo Sketchfab -->
         <div id="help-card">
             <div class="font-bold text-emerald-400 mb-1 flex items-center gap-1.5">
-                <i class="fa-solid fa-circle-info"></i> Navegación Sketchfab
+                <i class="fa-solid fa-circle-info"></i> Navegación 3D
             </div>
-            <div>• <b>Clic izquierdo / 1 dedo:</b> Rotar órbita</div>
-            <div>• <b>Clic derecho / 2 dedos:</b> Desplazar (Pan)</div>
+            <div>• <b>Arrastrar izq / 1 dedo:</b> Rotar derecha/izq y arriba/abajo</div>
+            <div>• <b>Arrastrar der / 2 dedos:</b> Desplazar (Pan)</div>
             <div>• <b>Rueda / Pellizco:</b> Zoom continuo</div>
             <div>• <b>Doble clic en superficie:</b> Centrar pivote aquí</div>
         </div>
@@ -156,14 +155,11 @@
 
         <!-- Barra inferior de controles estilo Sketchfab -->
         <div class="sketchfab-bar" id="sf-bar">
-            <button class="sf-btn active" id="btn-reset" onclick="resetToInitialView()" title="Vista superior inclinada (Default)">
-                <i class="fa-solid fa-house"></i> Vista Inicial
+            <button class="sf-btn active" id="btn-reset" onclick="resetToInitialView()" title="Vista de planta cenital (Default)">
+                <i class="fa-solid fa-arrow-down"></i> Vista Planta
             </button>
-            <button class="sf-btn" id="btn-top" onclick="setTopView()" title="Vista aérea cenital">
-                <i class="fa-solid fa-arrow-down"></i> Planta
-            </button>
-            <button class="sf-btn" id="btn-persp" onclick="setPerspView()" title="Perspectiva 45°">
-                <i class="fa-solid fa-cube"></i> 45°
+            <button class="sf-btn" id="btn-persp" onclick="setPerspView()" title="Perspectiva 3D a 45°">
+                <i class="fa-solid fa-cube"></i> Perspectiva 45°
             </button>
             <div style="width:1px; height:18px; background:rgba(255,255,255,0.15);"></div>
             <button class="sf-btn" id="btn-autorotate" onclick="toggleAutoRotate()" title="Girar automáticamente">
@@ -173,7 +169,6 @@
                 <i class="fa-solid fa-question"></i>
             </button>
         </div>
-
     </div>
 
     <script type="importmap">
@@ -210,13 +205,13 @@
         // ── 1. Escena y Fondo ────────────────────────────────
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0f172a);
-        scene.fog = new THREE.FogExp2(0x0f172a, 0.0001);
+        scene.fog = new THREE.FogExp2(0x0f172a, 0.00008);
 
         // ── 2. Cámara ────────────────────────────────────────
         const camera = new THREE.PerspectiveCamera(
             45,
             container.clientWidth / container.clientHeight,
-            0.5,
+            1,
             100000
         );
 
@@ -226,17 +221,17 @@
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.1;
+        renderer.toneMappingExposure = 1.15;
         container.appendChild(renderer.domElement);
 
         // ── 4. Controles al estilo SKETCHFAB ─────────────────
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.dampingFactor = 0.05; // Amortiguación suave característica de Sketchfab
-        controls.screenSpacePanning = true; // Pan 2D intuitivo sobre el plano de la cámara
-        controls.zoomSpeed = 1.1;
-        controls.rotateSpeed = 0.7;
-        controls.panSpeed = 0.8;
+        controls.dampingFactor = 0.07;
+        controls.screenSpacePanning = true; // Desplazamiento intuitivo en el plano de pantalla
+        controls.zoomSpeed = 1.15;
+        controls.rotateSpeed = 0.75;
+        controls.panSpeed = 0.85;
 
         // Mapeo idéntico a Sketchfab:
         // Clic izq = Orbitar, Clic central = Zoom, Clic der = Desplazar (Pan)
@@ -245,33 +240,33 @@
             MIDDLE: THREE.MOUSE.DOLLY,
             RIGHT: THREE.MOUSE.PAN
         };
-        // Táctil en teléfono: 1 dedo = rotar, 2 dedos = zoom y pan simultáneo
+        // Táctil en teléfono: 1 dedo = rotar (horizontal/vertical), 2 dedos = zoom y pan simultáneo
         controls.touches = {
             ONE: THREE.TOUCH.ROTATE,
             TWO: THREE.TOUCH.DOLLY_PAN
         };
 
-        // Evitar pasar bajo el terreno (máximo ~82° de inclinación)
-        controls.maxPolarAngle = Math.PI / 2.15;
-        controls.minPolarAngle = THREE.MathUtils.degToRad(2);
+        // Permite desde vista cenital vertical (0°) hasta casi rasante al suelo (~85°)
+        controls.minPolarAngle = 0;
+        controls.maxPolarAngle = Math.PI / 2.05;
 
         // ── 5. Iluminación Natural ───────────────────────────
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 1.8);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 2.0);
         scene.add(hemiLight);
 
-        const sunLight = new THREE.DirectionalLight(0xfffbeb, 2.2);
-        sunLight.position.set(400, 900, 300);
+        const sunLight = new THREE.DirectionalLight(0xfffbeb, 2.4);
+        sunLight.position.set(500, 1000, 400);
         scene.add(sunLight);
 
-        const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.7);
-        fillLight.position.set(-300, 400, -300);
+        const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.8);
+        fillLight.position.set(-400, 500, -300);
         scene.add(fillLight);
 
         // ── 6. Variables del Modelo ──────────────────────────
         let loadedMesh = null;
-        let maxDim = 100;
         let initialCamPos = new THREE.Vector3();
         let initialTarget = new THREE.Vector3(0, 0, 0);
+        let optimalDistance = 1000;
 
         // ── 7. Carga del Modelo ODM ──────────────────────────
         const basePath = './assets/models/';
@@ -298,39 +293,53 @@
                     (object) => {
                         loadedMesh = object;
 
-                        // Recentrado compensando coordenadas UTM
+                        // ── CORRECCIÓN FUNDAMENTAL DE COORDENADAS ──
+                        // El modelo ODM tiene coordenadas topocéntricas donde:
+                        // X = Este (737m), Y = Norte (850m), Z = Altitud/Elevación (37m, vertical).
+                        // En Three.js la vertical es Y. Rotamos -90° en X para que el terreno
+                        // quede acostado naturalmente en el plano horizontal X-Z con la elevación en Y:
+                        object.rotation.x = -Math.PI / 2;
+                        object.updateMatrixWorld(true);
+
+                        // ── PIVOTE EN EL CENTRO EXACTO (0, 0, 0) ──
+                        // Calculamos el bounding box con la rotación aplicada
                         const box = new THREE.Box3().setFromObject(object);
                         const center = box.getCenter(new THREE.Vector3());
                         const size = box.getSize(new THREE.Vector3());
 
-                        object.position.set(-center.x, -box.min.y, -center.z);
+                        // Centramos el objeto EXACTAMENTE en su centro geométrico en los 3 ejes
+                        // para que el giro ocurra sobre su verdadero centro de masa y no sobre un borde:
+                        object.position.x = -center.x;
+                        object.position.y = -center.y;
+                        object.position.z = -center.z;
                         scene.add(object);
 
-                        maxDim = Math.max(size.x, size.z);
-                        controls.minDistance = maxDim * 0.01;
-                        controls.maxDistance = maxDim * 4.5;
+                        const maxHoriz = Math.max(size.x, size.z);
+                        controls.minDistance = maxHoriz * 0.05;
+                        controls.maxDistance = maxHoriz * 5.0;
 
-                        // ── VISTA INICIAL: SUPERIOR CON ZOOM LEVEMENTE INCLINADA ──
-                        // Ángulo casi cenital (~72° desde horizontal / ~18° desde vertical)
-                        // Con zoom adecuado para que el barrio ocupe la pantalla
-                        const zoomDist = maxDim * 0.95;
-                        const altitude = zoomDist * Math.sin(THREE.MathUtils.degToRad(72));
-                        const offsetZ  = zoomDist * Math.cos(THREE.MathUtils.degToRad(72));
+                        // ── VISTA INICIAL DE PLANTA (COMO LA IMAGEN ADJUNTA) ──
+                        // Calculamos la distancia exacta de la cámara para que el barrio
+                        // ocupe la pantalla perfectamente con zoom óptimo
+                        const fovRad = THREE.MathUtils.degToRad(camera.fov);
+                        optimalDistance = (maxHoriz / 2) / Math.tan(fovRad / 2) * 1.05;
 
-                        initialCamPos.set(0, altitude, offsetZ);
+                        // Se ubica directamente arriba en el eje Y, con un offset infinitesimal en Z
+                        // (0.001) para definir la orientación y evitar singularidad matemática en OrbitControls:
+                        initialCamPos.set(0, optimalDistance, 0.001);
                         initialTarget.set(0, 0, 0);
 
                         camera.position.copy(initialCamPos);
-                        camera.lookAt(initialTarget);
                         controls.target.copy(initialTarget);
+                        camera.lookAt(initialTarget);
                         controls.update();
 
-                        // Ocultar carga y mostrar controles Sketchfab
+                        // Ocultar pantalla de carga y mostrar controles Sketchfab
                         loadingDiv.style.display = 'none';
                         sfBar.style.display = 'flex';
                         helpCard.style.display = 'block';
 
-                        // Ocultar ayuda tras 6 segundos
+                        // Ocultar tarjeta de ayuda tras 6 segundos
                         setTimeout(() => {
                             helpCard.style.opacity = '0';
                             helpCard.style.transition = 'opacity 0.8s ease';
@@ -359,7 +368,7 @@
             }
         );
 
-        // ── 8. DOBLE CLIC TIPO SKETCHFAB (Centrar pivote en punto) ──
+        // ── 8. DOBLE CLIC TIPO SKETCHFAB (Centrar pivote en superficie) ──
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
 
@@ -376,7 +385,6 @@
             if (intersects.length > 0) {
                 const hitPoint = intersects[0].point;
 
-                // Animación visual del indicador de pivote en pantalla
                 pivotIndicator.style.left = e.clientX + 'px';
                 pivotIndicator.style.top = e.clientY + 'px';
                 pivotIndicator.style.opacity = '1';
@@ -387,8 +395,7 @@
                     pivotIndicator.style.opacity = '0';
                 }, 350);
 
-                // Mover suavemente el target de OrbitControls al punto seleccionado
-                smoothLookAt(hitPoint, 600);
+                smoothLookAt(hitPoint, 550);
             }
         });
 
@@ -425,24 +432,22 @@
             requestAnimationFrame(step);
         }
 
-        // ── 9. Botones de Vista ──────────────────────────────
+        // ── 9. Botones de Navegación Rápida ──────────────────
         window.resetToInitialView = function() {
             controls.autoRotate = false;
             document.getElementById('btn-autorotate').classList.remove('active');
+            document.getElementById('btn-reset').classList.add('active');
+            document.getElementById('btn-persp').classList.remove('active');
             smoothFlyTo(initialCamPos, initialTarget, 750);
-        };
-
-        window.setTopView = function() {
-            controls.autoRotate = false;
-            document.getElementById('btn-autorotate').classList.remove('active');
-            const topPos = new THREE.Vector3(0, maxDim * 1.3, 0.001);
-            smoothFlyTo(topPos, new THREE.Vector3(0, 0, 0), 750);
         };
 
         window.setPerspView = function() {
             controls.autoRotate = false;
             document.getElementById('btn-autorotate').classList.remove('active');
-            const perspPos = new THREE.Vector3(maxDim * 0.7, maxDim * 0.6, maxDim * 0.7);
+            document.getElementById('btn-reset').classList.remove('active');
+            document.getElementById('btn-persp').classList.add('active');
+            // Vista perspectiva oblicua clásica a 45°
+            const perspPos = new THREE.Vector3(0, optimalDistance * 0.65, optimalDistance * 0.65);
             smoothFlyTo(perspPos, new THREE.Vector3(0, 0, 0), 750);
         };
 
@@ -450,7 +455,7 @@
         window.toggleAutoRotate = function() {
             autoRotating = !autoRotating;
             controls.autoRotate = autoRotating;
-            controls.autoRotateSpeed = 0.6;
+            controls.autoRotateSpeed = 0.8;
             document.getElementById('btn-autorotate').classList.toggle('active', autoRotating);
         };
 
@@ -458,7 +463,7 @@
             helpCard.style.display = helpCard.style.display === 'none' ? 'block' : 'none';
         };
 
-        // ── 10. Redimensionamiento ───────────────────────────
+        // ── 10. Redimensionamiento Responsivo ────────────────
         window.addEventListener('resize', () => {
             camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
