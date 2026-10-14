@@ -15,7 +15,7 @@
 
 **Invu 2 Verde** es una plataforma de información territorial desarrollada por Alejandro Soto como herramienta de gestión ambiental y diagnóstico urbano para el Barrio INVU 2 en Liberia, Guanacaste, Costa Rica.
 
-Generada a partir de un levantamiento aerofotogramétrico con dron (ortofoto 4 cm/px, 13 de octubre de 2026) y digitalización de infraestructura vial, peatonal, redes hidráulicas y cobertura verde.
+Generada a partir de un levantamiento aerofotogramétrico con dron (ortofoto 4 cm/px, 12 de octubre de 2026) y digitalización de infraestructura vial, peatonal, redes hidráulicas y cobertura verde.
 
 link de portal:  https://asoto59g.github.io/Invu2-Verde/index.html
 
