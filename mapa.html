@@ -6,25 +6,138 @@
     <title>Mapa Interactivo - Invu 2 Verde</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Leaflet CSS y JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Proj4js para reproyectar UTM → WGS84 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
     <style>
-        #map { height: calc(100vh - 73px); width: 100%; z-index: 1; }
+        html, body { height: 100%; margin: 0; padding: 0; }
+        #map { height: calc(100vh - 65px); width: 100%; z-index: 1; }
+
+        /* Panel de leyenda */
+        .legend-control {
+            background: rgba(255,255,255,0.95);
+            padding: 12px 14px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            font-size: 12px;
+            line-height: 1.7;
+            min-width: 170px;
+        }
+        .legend-control h4 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e293b;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 4px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 2px;
+        }
+        .legend-line {
+            display: inline-block;
+            width: 28px;
+            height: 4px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        .legend-line-dashed {
+            border-top: 3px dashed;
+            height: 0;
+            background: transparent;
+        }
+        .legend-polygon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            border-width: 2px;
+            border-style: solid;
+            flex-shrink: 0;
+        }
+
+        /* Tooltip personalizado */
+        .leaflet-tooltip {
+            background: rgba(15,23,42,0.9);
+            color: #f1f5f9;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            padding: 6px 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            pointer-events: none;
+        }
+        .leaflet-tooltip::before {
+            border-top-color: rgba(15,23,42,0.9);
+        }
+        .tooltip-title {
+            font-weight: 700;
+            font-size: 13px;
+            margin-bottom: 3px;
+            color: #34d399;
+        }
+        .tooltip-row {
+            display: flex;
+            gap: 6px;
+        }
+        .tooltip-label { color: #94a3b8; }
+        .tooltip-value { color: #f1f5f9; font-weight: 600; }
+
+        /* Popup */
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+            padding: 0;
+        }
+        .custom-popup h3 {
+            background: #064e3b;
+            color: white;
+            padding: 8px 12px;
+            margin: 0;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 8px 8px 0 0;
+        }
+        .custom-popup table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .custom-popup td {
+            padding: 5px 12px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .custom-popup td:first-child {
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .custom-popup td:last-child {
+            color: #1e293b;
+            font-weight: 700;
+        }
     </style>
 </head>
-<body class="bg-slate-50 flex flex-col h-screen overflow-hidden">
+<body class="bg-slate-50 flex flex-col" style="height:100vh;overflow:hidden;">
 
     <!-- Header -->
-    <header class="bg-emerald-700 text-white shadow-md z-10 relative">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold flex items-center gap-2">
+    <header class="bg-emerald-700 text-white shadow-md z-10 relative" style="flex-shrink:0;">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-lg font-bold flex items-center gap-2">
                 <i class="fa-solid fa-map-location-dot"></i> Ortofoto y Red Vectorial - INVU 2
             </h1>
-            <nav class="space-x-4">
+            <nav class="space-x-4 text-sm">
                 <a href="index.html" class="hover:text-emerald-200">Inicio</a>
                 <a href="mapa.html" class="underline font-semibold">Mapa</a>
                 <a href="modelo3d.html" class="hover:text-emerald-200">Visor 3D</a>
+                <a href="reflexion.html" class="hover:text-emerald-200">Comunidad</a>
+                <a href="acerca.html" class="hover:text-emerald-200">Acerca de</a>
             </nav>
         </div>
     </header>
@@ -33,91 +146,312 @@
     <div id="map"></div>
 
     <script>
-        // 1. Inicializar mapa sin bloqueos restrictivos.
-        // Centro genérico en Liberia, pero lo centraremos en las capas luego.
-        const map = L.map('map').setView([10.638, -85.435], 16);
+    // ─────────────────────────────────────────────────────────────
+    // CONFIGURACIÓN DE PROYECCIÓN
+    // Todos los GeoJSON están en EPSG:32616 (UTM Zona 16N).
+    // Leaflet necesita WGS84 (EPSG:4326). Usamos proj4js para convertir.
+    // ─────────────────────────────────────────────────────────────
+    proj4.defs('EPSG:32616', '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs');
 
-        // 2. Capas Base
-        const ortofoto = L.tileLayer('./assets/tiles/{z}/{x}/{y}.png', {
-            minZoom: 15,
-            maxZoom: 22,
-            attribution: 'Ortofoto 4 cm/px - INVU 2 (ABC Geomática)'
-        }).addTo(map);
+    /**
+     * Convierte recursivamente un array de coordenadas de UTM a WGS84.
+     * Soporta Point, LineString, Polygon, Multi* y GeometryCollection.
+     */
+    function utmToWgs84Coords(coords, isPoint) {
+        if (isPoint || (typeof coords[0] === 'number' && coords.length >= 2)) {
+            const converted = proj4('EPSG:32616', 'EPSG:4326', [coords[0], coords[1]]);
+            return [converted[0], converted[1]]; // [lng, lat]
+        }
+        return coords.map(c => utmToWgs84Coords(c, false));
+    }
 
-        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19,
-            attribution: 'Tiles &copy; Esri'
-        });
+    function convertFeature(feature) {
+        if (!feature.geometry || !feature.geometry.coordinates) return feature;
+        const geom = feature.geometry;
+        const newCoords = utmToWgs84Coords(geom.coordinates, geom.type === 'Point');
+        return {
+            ...feature,
+            geometry: { ...geom, coordinates: newCoords }
+        };
+    }
 
-        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 22,
-            attribution: '&copy; OpenStreetMap'
-        });
+    function convertGeoJSON(data) {
+        if (!data || !data.features) return data;
+        return {
+            ...data,
+            features: data.features
+                .filter(f => f.geometry && f.geometry.coordinates && f.geometry.coordinates.length > 0)
+                .map(convertFeature)
+        };
+    }
 
-        // 3. Estilos
-        const estiloPerimetro = { color: "#fbbf24", weight: 4, fillOpacity: 0, dashArray: "5, 5" };
-        const estiloVerde = { color: "#15803d", fillColor: "#22c55e", fillOpacity: 0.4, weight: 1 };
-        const estiloParques = { color: "#047857", fillColor: "#10b981", fillOpacity: 0.6, weight: 2 };
-        const estiloAceras = { color: "#94a3b8", weight: 1.5 };
-        const estiloCalles = { color: "#334155", weight: 3 };
-        const estiloPluvial = { color: "#0284c7", weight: 2 };
-        const estiloSanitario = { color: "#dc2626", weight: 2 };
+    // ─────────────────────────────────────────────────────────────
+    // INICIALIZAR MAPA
+    // Centro provisional en Liberia; se recentrará con fitBounds
+    // ─────────────────────────────────────────────────────────────
+    const map = L.map('map', {
+        zoomControl: true,
+        attributionControl: true
+    }).setView([10.638, -85.435], 16);
 
-        // 4. Función segura para cargar GeoJSON
-        async function loadGeoJSON(url, style, layerName, addToMap = true) {
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const data = await response.json();
-                
-                const geojsonLayer = L.geoJSON(data, { style: style });
-                if(addToMap) geojsonLayer.addTo(map);
-                
-                // Si es el perímetro, que la cámara haga zoom hacia él
-                if (layerName === "Perímetro") {
-                    map.fitBounds(geojsonLayer.getBounds());
-                }
-                
-                return geojsonLayer;
-            } catch (error) {
-                console.error(`Error cargando ${url}:`, error);
-                return L.layerGroup(); // Retorna capa vacía para no romper el mapa
+    // ─────────────────────────────────────────────────────────────
+    // CAPAS BASE
+    // ─────────────────────────────────────────────────────────────
+    const ortofoto = L.tileLayer('./assets/tiles/{z}/{x}/{y}.png', {
+        minZoom: 15,
+        maxZoom: 22,
+        maxNativeZoom: 21,
+        attribution: 'Ortofoto 4 cm/px &mdash; INVU 2 (ABC Geomática)'
+    }).addTo(map);
+
+    const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri'
+    });
+
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // ESTILOS DE CAPAS
+    // ─────────────────────────────────────────────────────────────
+    const estilos = {
+        perimetro:  { color: "#fbbf24", weight: 3, fillOpacity: 0,    dashArray: "8,5",  opacity: 1 },
+        calles:     { color: "#475569", weight: 4, fillOpacity: 0,    lineCap: "round",  lineJoin: "round" },
+        aceras:     { color: "#cbd5e1", weight: 2, fillOpacity: 0,    dashArray: "2,3" },
+        pluvial:    { color: "#0ea5e9", weight: 2.5, fillOpacity: 0,  dashArray: "6,3" },
+        sanitario:  { color: "#f87171", weight: 2.5, fillOpacity: 0,  dashArray: "6,3" },
+        parques:    { color: "#15803d", fillColor: "#4ade80", fillOpacity: 0.55, weight: 2 },
+        arboriz:    { color: "#166534", fillColor: "#86efac", fillOpacity: 0.45, weight: 1 }
+    };
+
+    // ─────────────────────────────────────────────────────────────
+    // FUNCIÓN PARA GENERAR HTML DE POPUP
+    // ─────────────────────────────────────────────────────────────
+    function buildPopup(titulo, props, campos) {
+        let rows = '';
+        for (const [label, key] of campos) {
+            const val = props[key];
+            if (val !== null && val !== undefined) {
+                rows += `<tr><td>${label}</td><td>${val}</td></tr>`;
             }
         }
+        return `<div class="custom-popup">
+            <h3><i class="fa-solid fa-circle-info" style="margin-right:5px;"></i>${titulo}</h3>
+            <table>${rows}</table>
+        </div>`;
+    }
 
-        // 5. Cargar todas las capas
-        async function initializeLayers() {
-            // Nota: Verifica que en tu carpeta assets los nombres sean exactamente estos.
-            const perimetroLayer = await loadGeoJSON('./assets/perimetro.geojson', estiloPerimetro, "Perímetro", true);
-            const areasVerdesLayer = await loadGeoJSON('./assets/areas_verdes.json', estiloVerde, "Áreas Verdes", true);
-            const parquesLayer = await loadGeoJSON('./assets/parques.geojson', estiloParques, "Parques", true);
-            const acerasLayer = await loadGeoJSON('./assets/aceras.geojson', estiloAceras, "Aceras", true);
-            const callesLayer = await loadGeoJSON('./assets/Calles.geojson', estiloCalles, "Calles", true);
-            const pluvialLayer = await loadGeoJSON('./assets/alcantpluvial.geojson', estiloPluvial, "Pluvial", true);
-            const sanitarioLayer = await loadGeoJSON('./assets/alcantsanitario.geojson', estiloSanitario, "Sanitario", true);
+    // ─────────────────────────────────────────────────────────────
+    // FUNCIÓN PARA CONSTRUIR TOOLTIP AL HOVER
+    // ─────────────────────────────────────────────────────────────
+    function buildTooltip(titulo, props, campos) {
+        let rows = '';
+        for (const [label, key] of campos) {
+            const val = props[key];
+            if (val !== null && val !== undefined) {
+                rows += `<div class="tooltip-row"><span class="tooltip-label">${label}:</span><span class="tooltip-value">${val}</span></div>`;
+            }
+        }
+        return `<div class="tooltip-title">${titulo}</div>${rows}`;
+    }
 
-            // 6. Control de Capas
-            const baseMaps = {
-                "Ortofoto Dron (4 cm/px)": ortofoto,
-                "Satélite General (Esri)": satellite,
-                "OpenStreetMap": osm
-            };
+    // ─────────────────────────────────────────────────────────────
+    // FUNCIÓN GENÉRICA PARA CARGAR GEOJSON (UTM → WGS84 auto)
+    // ─────────────────────────────────────────────────────────────
+    async function loadLayer(url, estilo, opts = {}) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status} al cargar ${url}`);
+            const raw = await res.json();
 
-            const overlayMaps = {
-                "Límite INVU 2": perimetroLayer,
-                "Calles": callesLayer,
-                "Parques": parquesLayer,
-                "Áreas Verdes": areasVerdesLayer,
-                "Aceras": acerasLayer,
-                "Alcantarillado Pluvial": pluvialLayer,
-                "Alcantarillado Sanitario": sanitarioLayer
-            };
+            // Detectar si está en UTM por el CRS o por las coordenadas
+            const esUTM = raw.crs && raw.crs.properties &&
+                          raw.crs.properties.name &&
+                          raw.crs.properties.name.includes('32616');
 
-            L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
+            const data = esUTM ? convertGeoJSON(raw) : raw;
+
+            const layer = L.geoJSON(data, {
+                style: typeof estilo === 'function' ? estilo : () => estilo,
+                pointToLayer: opts.pointToLayer,
+                onEachFeature: (feature, lyr) => {
+                    const props = feature.properties || {};
+
+                    // --- Tooltip al hover (mouse y touch) ---
+                    if (opts.tooltipTitle) {
+                        lyr.bindTooltip(
+                            () => buildTooltip(opts.tooltipTitle, props, opts.campos || []),
+                            { sticky: true, opacity: 0.95 }
+                        );
+                    }
+
+                    // --- Popup al clic ---
+                    if (opts.popupTitle) {
+                        lyr.bindPopup(
+                            buildPopup(opts.popupTitle, props, opts.campos || []),
+                            { maxWidth: 280 }
+                        );
+                    }
+
+                    // Highlight on hover para polígonos/líneas
+                    if (opts.highlight) {
+                        lyr.on('mouseover', function() { this.setStyle(opts.highlight); });
+                        lyr.on('mouseout', function() { layer.resetStyle(this); });
+                    }
+                }
+            });
+
+            if (opts.addToMap !== false) layer.addTo(map);
+            return layer;
+
+        } catch (err) {
+            console.warn(`No se pudo cargar ${url}:`, err.message);
+            return L.layerGroup(); // capa vacía para no romper el control
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // CARGAR TODAS LAS CAPAS Y CONFIGURAR EL MAPA
+    // ─────────────────────────────────────────────────────────────
+    async function initMap() {
+
+        // Perímetro del barrio (polígono base — se usa para hacer fitBounds)
+        const perimetroLayer = await loadLayer('./assets/Perimetro.geojson', estilos.perimetro, {
+            tooltipTitle: '📍 Límite INVU 2',
+            popupTitle:   'Perímetro INVU 2',
+            campos: [['ID', 'id'], ['Área (Ha)', 'AreaHa']],
+            highlight: { color: '#f59e0b', weight: 5 }
+        });
+
+        // Calles
+        const callesLayer = await loadLayer('./assets/Calles.geojson', estilos.calles, {
+            tooltipTitle: '🛣️ Calle',
+            popupTitle:   'Red Vial',
+            campos: [['ID', 'id'], ['Longitud (m)', 'long']],
+            highlight: { color: '#0f172a', weight: 6 }
+        });
+
+        // Aceras
+        const acerasLayer = await loadLayer('./assets/Aceras.geojson', estilos.aceras, {
+            tooltipTitle: '🚶 Acera',
+            popupTitle:   'Acera Peatonal',
+            campos: [['ID', 'id'], ['Longitud (m)', 'long']],
+            highlight: { color: '#94a3b8', weight: 4 }
+        });
+
+        // Alcantarillado Pluvial
+        const pluvialLayer = await loadLayer('./assets/alcantpluvial.geojson', estilos.pluvial, {
+            tooltipTitle: '💧 Alcantarillado Pluvial',
+            popupTitle:   'Red Pluvial',
+            campos: [['ID', 'id'], ['Longitud (m)', 'long']],
+            highlight: { color: '#0369a1', weight: 5 }
+        });
+
+        // Alcantarillado Sanitario
+        const sanitarioLayer = await loadLayer('./assets/alcantsanitario.geojson', estilos.sanitario, {
+            tooltipTitle: '🔴 Alcantarillado Sanitario',
+            popupTitle:   'Red Sanitaria',
+            campos: [['ID', 'id'], ['Longitud (m)', 'long']],
+            highlight: { color: '#b91c1c', weight: 5 }
+        });
+
+        // Parques
+        const parquesLayer = await loadLayer('./assets/parques.geojson', estilos.parques, {
+            tooltipTitle: '🌳 Parque',
+            popupTitle:   'Parque / Área Recreativa',
+            campos: [['ID', 'id'], ['Área (m²)', 'aream2']],
+            highlight: { color: '#14532d', weight: 3, fillOpacity: 0.7 }
+        });
+
+        // Arborización y Zonas Verdes (archivo grande, puede tardar)
+        const arboLayer = await loadLayer('./assets/areas_verdes.json', estilos.arboriz, {
+            tooltipTitle: '🌿 Zona Verde',
+            popupTitle:   'Arborización / Zona Verde',
+            campos: [['FID', 'fid'], ['Clase DN', 'DN']],
+            highlight: { color: '#166534', weight: 2, fillOpacity: 0.65 }
+        });
+
+        // ── Centrar mapa sobre el perímetro al máximo zoom posible ──
+        try {
+            const bounds = perimetroLayer.getBounds();
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [20, 20], maxZoom: 21 });
+            }
+        } catch(e) {
+            console.warn('No se pudo hacer fitBounds:', e);
         }
 
-        // Iniciar la carga
-        initializeLayers();
+        // ─────────────────────────────────────────────────────────
+        // CONTROL DE CAPAS
+        // ─────────────────────────────────────────────────────────
+        const baseMaps = {
+            "<i class='fa-solid fa-satellite mr-1'></i> Ortofoto Dron (4 cm/px)": ortofoto,
+            "<i class='fa-solid fa-earth-americas mr-1'></i> Satélite Esri": satellite,
+            "<i class='fa-solid fa-map mr-1'></i> OpenStreetMap": osm
+        };
+
+        const overlayMaps = {
+            "<span style='color:#fbbf24;'>━━</span> Límite INVU 2": perimetroLayer,
+            "<span style='color:#475569;'>━━</span> Calles": callesLayer,
+            "<span style='color:#94a3b8;'>┅┅</span> Aceras": acerasLayer,
+            "<span style='color:#0ea5e9;'>┅┅</span> Alcant. Pluvial": pluvialLayer,
+            "<span style='color:#f87171;'>┅┅</span> Alcant. Sanitario": sanitarioLayer,
+            "<span style='background:#4ade80;border:2px solid #15803d;display:inline-block;width:14px;height:10px;border-radius:2px;'></span> Parques": parquesLayer,
+            "<span style='background:#86efac;border:2px solid #166534;display:inline-block;width:14px;height:10px;border-radius:2px;'></span> Zonas Verdes": arboLayer
+        };
+
+        L.control.layers(baseMaps, overlayMaps, {
+            collapsed: false,
+            position: 'topright'
+        }).addTo(map);
+
+        // ─────────────────────────────────────────────────────────
+        // LEYENDA PERSONALIZADA
+        // ─────────────────────────────────────────────────────────
+        const legend = L.control({ position: 'bottomleft' });
+        legend.onAdd = function() {
+            const div = L.DomUtil.create('div', 'legend-control');
+            div.innerHTML = `
+                <h4><i class="fa-solid fa-layer-group" style="margin-right:5px;"></i>Simbología</h4>
+                <div class="legend-item">
+                    <span class="legend-line legend-line-dashed" style="border-color:#fbbf24; width:28px;"></span>
+                    Límite INVU 2
+                </div>
+                <div class="legend-item">
+                    <span class="legend-line" style="background:#475569; height:4px;"></span>
+                    Calles
+                </div>
+                <div class="legend-item">
+                    <span class="legend-line" style="background:#cbd5e1; height:2px;"></span>
+                    Aceras
+                </div>
+                <div class="legend-item">
+                    <span class="legend-line legend-line-dashed" style="border-color:#0ea5e9; width:28px;"></span>
+                    Alcant. Pluvial
+                </div>
+                <div class="legend-item">
+                    <span class="legend-line legend-line-dashed" style="border-color:#f87171; width:28px;"></span>
+                    Alcant. Sanitario
+                </div>
+                <div class="legend-item">
+                    <span class="legend-polygon" style="background:#4ade80;border-color:#15803d;"></span>
+                    Parques
+                </div>
+                <div class="legend-item">
+                    <span class="legend-polygon" style="background:#86efac;border-color:#166534;"></span>
+                    Zonas Verdes
+                </div>
+            `;
+            return div;
+        };
+        legend.addTo(map);
+    }
+
+    // Iniciar
+    initMap();
     </script>
 </body>
 </html>

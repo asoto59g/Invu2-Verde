@@ -5,35 +5,82 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visor 3D - Invu 2 Verde</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { margin: 0; overflow: hidden; background-color: #1e293b; }
-        #canvas-container { width: 100vw; height: calc(100vh - 73px); position: relative; }
-        
+        html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: #0f172a; }
+        #canvas-container { width: 100vw; height: calc(100vh - 61px); position: relative; }
+
         #loading-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #1e293b; display: flex; flex-direction: column;
+            background-color: #0f172a; display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 50; color: #34d399;
+        }
+
+        #progress-bar-bg {
+            width: 320px; height: 8px; background: #1e293b;
+            border-radius: 4px; margin-top: 16px; overflow: hidden;
+        }
+        #progress-bar {
+            height: 100%; background: #34d399; border-radius: 4px;
+            width: 0%; transition: width 0.3s ease;
+        }
+
+        #controls-hint {
+            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+            background: rgba(15,23,42,0.85); color: #94a3b8; font-size: 12px;
+            padding: 6px 14px; border-radius: 20px; z-index: 10; white-space: nowrap;
+            pointer-events: none;
+        }
+
+        #error-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #0f172a; display: none; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 50; color: #f87171;
+            text-align: center; padding: 40px;
         }
     </style>
 </head>
-<body class="flex flex-col h-screen">
+<body class="flex flex-col" style="height:100vh;">
 
     <!-- Header -->
-    <header class="bg-emerald-700 text-white shadow-md z-10 relative">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold">Modelo Tridimensional - INVU 2</h1>
-            <nav class="space-x-4">
+    <header class="bg-emerald-700 text-white shadow-md z-10 relative" style="flex-shrink:0;">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-lg font-bold flex items-center gap-2">
+                <i class="fa-solid fa-cube"></i> Modelo Tridimensional - INVU 2
+            </h1>
+            <nav class="space-x-4 text-sm">
                 <a href="index.html" class="hover:text-emerald-200">Inicio</a>
                 <a href="mapa.html" class="hover:text-emerald-200">Mapa</a>
                 <a href="modelo3d.html" class="underline font-semibold">Visor 3D</a>
+                <a href="reflexion.html" class="hover:text-emerald-200">Comunidad</a>
+                <a href="acerca.html" class="hover:text-emerald-200">Acerca de</a>
             </nav>
         </div>
     </header>
 
     <div id="canvas-container">
+        <!-- Pantalla de carga -->
         <div id="loading-screen">
-            <h2 class="text-xl font-bold">Cargando Modelo 3D (Puede tardar minutos)</h2>
-            <p id="loading-text" class="text-slate-300 mt-2">Iniciando descarga...</p>
+            <i class="fa-solid fa-cube text-5xl mb-4 animate-pulse"></i>
+            <h2 class="text-xl font-bold">Cargando Modelo 3D INVU 2</h2>
+            <p id="loading-text" class="text-slate-400 mt-2 text-sm">Iniciando...</p>
+            <div id="progress-bar-bg">
+                <div id="progress-bar"></div>
+            </div>
+            <p class="text-slate-500 text-xs mt-4">El modelo puede tardar 1-3 minutos en cargar.<br>Depende de tu velocidad de internet.</p>
+        </div>
+
+        <!-- Pantalla de error -->
+        <div id="error-screen">
+            <i class="fa-solid fa-triangle-exclamation text-5xl mb-4"></i>
+            <h2 class="text-xl font-bold mb-2">No se pudo cargar el modelo</h2>
+            <p id="error-text" class="text-slate-400 text-sm max-w-md"></p>
+            <p class="text-slate-500 text-xs mt-4">Verifica que los archivos estén publicados en GitHub Pages correctamente.</p>
+        </div>
+
+        <!-- Hint de controles -->
+        <div id="controls-hint" style="display:none;">
+            🖱️ Rotar: clic+arrastrar &nbsp;|&nbsp; 🔍 Zoom: rueda &nbsp;|&nbsp; ↕️ Pan: clic derecho+arrastrar
         </div>
     </div>
 
@@ -52,98 +99,157 @@
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 
-        const container = document.getElementById('canvas-container');
-        const loadingScreen = document.getElementById('loading-screen');
+        const container   = document.getElementById('canvas-container');
+        const loadingDiv  = document.getElementById('loading-screen');
         const loadingText = document.getElementById('loading-text');
+        const progressBar = document.getElementById('progress-bar');
+        const errorDiv    = document.getElementById('error-screen');
+        const errorText   = document.getElementById('error-text');
+        const controlsHint = document.getElementById('controls-hint');
 
-        // 1. Escena básica
+        function showError(msg) {
+            loadingDiv.style.display = 'none';
+            errorDiv.style.display = 'flex';
+            errorText.textContent = msg;
+        }
+
+        // ── Escena ──────────────────────────────────────────────
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x1e293b);
+        scene.background = new THREE.Color(0x0f172a);
+        scene.fog = new THREE.FogExp2(0x0f172a, 0.00005);
 
-        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100000);
-        
+        // ── Cámara ──────────────────────────────────────────────
+        const camera = new THREE.PerspectiveCamera(
+            45,
+            container.clientWidth / container.clientHeight,
+            0.1,
+            500000
+        );
+
+        // ── Renderer ────────────────────────────────────────────
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = false;
         container.appendChild(renderer.domElement);
 
+        // ── Controles ───────────────────────────────────────────
         const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.screenSpacePanning = false;
+        controls.minDistance = 10;
+        controls.maxDistance = 5000;
+        controls.maxPolarAngle = Math.PI / 1.8; // evitar ir bajo tierra
 
-        // Luces fuertes
-        scene.add(new THREE.AmbientLight(0xffffff, 3.0));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
-        dirLight.position.set(100, 200, 50);
-        scene.add(dirLight);
+        // ── Luces ───────────────────────────────────────────────
+        const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
+        scene.add(ambientLight);
 
-        // 2. Cargadores (Rutas relativas a modelo3d.html)
-        const basePath = './assets/models/';
-        console.log("Iniciando carga desde:", basePath);
+        const sunLight = new THREE.DirectionalLight(0xfff8e7, 2.0);
+        sunLight.position.set(500, 1000, 300);
+        scene.add(sunLight);
+
+        const fillLight = new THREE.DirectionalLight(0xc7e0ff, 0.8);
+        fillLight.position.set(-300, 400, -200);
+        scene.add(fillLight);
+
+        // ── Rutas ───────────────────────────────────────────────
+        // El .mtl y el .obj están en ./assets/models/
+        // Las texturas están en ./assets/models/textures/
+        // MTLLoader.setPath = directorio donde busca el .mtl
+        // MTLLoader.setResourcePath = directorio desde donde resolver map_Kd relativo
+        const modelsPath   = './assets/models/';
+        const texturesPath = './assets/models/textures/';
+        const mtlFile      = 'odm_textured_model_geo.mtl';
+        const objFile      = 'odm_textured_model_geo.obj';
+
+        // ── Carga de Materiales (.mtl) ───────────────────────────
+        loadingText.textContent = 'Cargando materiales (.mtl)...';
 
         const mtlLoader = new MTLLoader();
-        mtlLoader.setPath(basePath);
-        
-        mtlLoader.load('odm_textured_model_geo.mtl', function (materials) {
-            console.log("Material (.mtl) cargado con éxito.");
-            materials.preload();
-            
-            const objLoader = new OBJLoader();
-            objLoader.setMaterials(materials);
-            objLoader.setPath(basePath);
-            
-            objLoader.load('odm_textured_model_geo.obj', function (object) {
-                console.log("Objeto (.obj) cargado con éxito.");
-                
-                scene.add(object);
-                
-                // MÁGIA DE REPOSICIONAMIENTO
-                const box = new THREE.Box3().setFromObject(object);
-                const center = box.getCenter(new THREE.Vector3());
-                const size = box.getSize(new THREE.Vector3());
-                
-                console.log("Centro original del objeto:", center);
-                console.log("Tamaño del objeto:", size);
+        mtlLoader.setPath(modelsPath);
+        mtlLoader.setResourcePath(texturesPath); // <-- KEY: texturas en subcarpeta
 
-                // Forzar el modelo al centro (0,0,0)
-                object.position.x = -center.x;
-                object.position.y = -center.y;
-                object.position.z = -center.z;
+        mtlLoader.load(
+            mtlFile,
+            (materials) => {
+                materials.preload();
+                loadingText.textContent = 'Materiales cargados. Descargando geometría (.obj)...';
 
-                // Calcular dónde poner la cámara basado en el tamaño real
-                const maxDim = Math.max(size.x, size.y, size.z);
-                
-                // Poner la cámara "arriba y atrás"
-                camera.position.set(maxDim * 0.5, maxDim * 1.5, maxDim * 1.5);
-                camera.lookAt(0, 0, 0);
-                controls.target.set(0, 0, 0);
-                controls.update();
+                // ── Carga del Objeto (.obj) ──────────────────────
+                const objLoader = new OBJLoader();
+                objLoader.setMaterials(materials);
+                objLoader.setPath(modelsPath);
 
-                loadingScreen.style.display = 'none';
+                objLoader.load(
+                    objFile,
+                    (object) => {
+                        // ── Recentrar el modelo en el origen ────
+                        // Los modelos ODM tienen coordenadas UTM absolutas (~670000, 1176000, ...)
+                        // Calculamos el bounding box y desplazamos al centro.
+                        const box = new THREE.Box3().setFromObject(object);
+                        const center = box.getCenter(new THREE.Vector3());
+                        const size   = box.getSize(new THREE.Vector3());
 
-            }, 
-            function (xhr) {
-                if (xhr.lengthComputable) {
-                    const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
-                    loadingText.innerText = `Descargando OBJ: ${percentComplete}% completado.`;
-                }
-            }, 
-            function (error) {
-                console.error("Error cargando el .obj:", error);
-                loadingText.innerText = "Error cargando el modelo (.obj). Revisa la consola.";
-                loadingText.style.color = "red";
-            });
-            
-        }, undefined, function(error) {
-            console.error("Error cargando el .mtl:", error);
-            loadingText.innerText = "Error cargando archivo de material (.mtl). Revisa la consola.";
-            loadingText.style.color = "red";
-        });
+                        // Mover el objeto para que su centro quede en (0, 0, 0)
+                        object.position.sub(center);
 
+                        // Asegurarse de que el suelo quede en y=0
+                        object.position.y += size.y / 2;
+
+                        scene.add(object);
+
+                        // ── Posicionar cámara ────────────────────
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        const dist   = maxDim * 1.2; // distancia cómoda
+
+                        camera.position.set(dist * 0.6, dist * 0.8, dist * 0.6);
+                        camera.lookAt(0, 0, 0);
+
+                        controls.target.set(0, 0, 0);
+                        controls.minDistance = maxDim * 0.01;
+                        controls.maxDistance = maxDim * 5;
+                        controls.update();
+
+                        // Ocultar loading, mostrar hint
+                        loadingDiv.style.display = 'none';
+                        controlsHint.style.display = 'block';
+
+                        console.log(`Modelo cargado. Tamaño: ${size.x.toFixed(0)}m × ${size.y.toFixed(0)}m × ${size.z.toFixed(0)}m`);
+                    },
+                    (xhr) => {
+                        // Progreso de descarga del .obj
+                        if (xhr.lengthComputable) {
+                            const pct = Math.round((xhr.loaded / xhr.total) * 100);
+                            loadingText.textContent = `Descargando modelo: ${pct}% (${(xhr.loaded/1048576).toFixed(1)} MB)`;
+                            progressBar.style.width = pct + '%';
+                        } else {
+                            const mb = (xhr.loaded / 1048576).toFixed(1);
+                            loadingText.textContent = `Descargando modelo: ${mb} MB recibidos...`;
+                        }
+                    },
+                    (err) => {
+                        console.error('Error al cargar .obj:', err);
+                        showError(`No se pudo cargar el archivo de geometría (${objFile}). Verifica que el archivo exista en assets/models/ y esté publicado en GitHub Pages.`);
+                    }
+                );
+            },
+            undefined,
+            (err) => {
+                console.error('Error al cargar .mtl:', err);
+                showError(`No se pudo cargar el archivo de materiales (${mtlFile}). Verifica que el archivo exista en assets/models/ y esté publicado en GitHub Pages.`);
+            }
+        );
+
+        // ── Resize ──────────────────────────────────────────────
         window.addEventListener('resize', () => {
             camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(container.clientWidth, container.clientHeight);
         });
 
+        // ── Loop de animación ───────────────────────────────────
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
