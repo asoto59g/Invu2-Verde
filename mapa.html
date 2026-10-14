@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mapa Interactivo - Invu 2 Verde</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,39 +11,133 @@
     <!-- Leaflet CSS y JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Proj4js para reproyectar UTM → WGS84 -->
+    <!-- Proj4js para reproyectar UTM (EPSG:32616) → WGS84 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
+    <!-- Turf.js para cálculos geodésicos precisos de distancia y área -->
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
     <style>
         html, body { height: 100%; margin: 0; padding: 0; }
-        #map { height: calc(100vh - 65px); width: 100%; z-index: 1; }
+        #map { height: calc(100vh - 61px); width: 100%; z-index: 1; }
 
-        /* Panel de leyenda */
-        .legend-control {
-            background: rgba(255,255,255,0.95);
-            padding: 12px 14px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-            font-size: 12px;
-            line-height: 1.7;
-            min-width: 170px;
+        /* Barra de herramientas flotante (Medición y GPS) */
+        .toolbar-panel {
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+            padding: 6px;
+            display: flex;
+            gap: 6px;
+            z-index: 1000;
         }
-        .legend-control h4 {
-            margin: 0 0 8px 0;
+
+        .tool-btn {
+            background: rgba(30, 41, 59, 0.85);
+            color: #cbd5e1;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .tool-btn:hover {
+            background: #047857;
+            color: #ffffff;
+            border-color: #10b981;
+        }
+
+        .tool-btn.active {
+            background: #059669;
+            color: #ffffff;
+            border-color: #34d399;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+
+        .tool-btn.danger {
+            background: rgba(185, 28, 28, 0.2);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .tool-btn.danger:hover {
+            background: #dc2626;
+            color: #ffffff;
+        }
+
+        /* Banner de resultado de medición */
+        #measure-badge {
+            position: absolute;
+            top: 75px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid #10b981;
+            color: #f8fafc;
+            padding: 8px 18px;
+            border-radius: 30px;
             font-size: 13px;
             font-weight: 700;
-            color: #1e293b;
-            border-bottom: 1px solid #e2e8f0;
-            padding-bottom: 4px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            gap: 8px;
         }
+
+        /* Panel de leyenda y control de capas */
+        .legend-control, .leaflet-control-layers {
+            background: rgba(255, 255, 255, 0.96) !important;
+            border-radius: 10px !important;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.2) !important;
+            font-size: 12px !important;
+            line-height: 1.6 !important;
+            border: 1px solid #cbd5e1 !important;
+            backdrop-filter: blur(6px);
+        }
+
+        .legend-control {
+            padding: 10px 14px;
+            min-width: 190px;
+        }
+
+        .cajetin-btn {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 2px 7px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+        .cajetin-btn:hover {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+
         .legend-item {
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-bottom: 2px;
+            margin-bottom: 3px;
+            color: #334155;
+            font-weight: 500;
         }
         .legend-line {
             display: inline-block;
-            width: 28px;
+            width: 26px;
             height: 4px;
             border-radius: 2px;
             flex-shrink: 0;
@@ -65,44 +159,50 @@
 
         /* Tooltip personalizado */
         .leaflet-tooltip {
-            background: rgba(15,23,42,0.9);
+            background: rgba(15, 23, 42, 0.92);
             color: #f1f5f9;
-            border: none;
-            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
             font-size: 12px;
-            padding: 6px 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            padding: 8px 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             pointer-events: none;
         }
         .leaflet-tooltip::before {
-            border-top-color: rgba(15,23,42,0.9);
+            border-top-color: rgba(15, 23, 42, 0.92);
         }
         .tooltip-title {
             font-weight: 700;
             font-size: 13px;
-            margin-bottom: 3px;
+            margin-bottom: 4px;
             color: #34d399;
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
         .tooltip-row {
             display: flex;
-            gap: 6px;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 11px;
         }
         .tooltip-label { color: #94a3b8; }
         .tooltip-value { color: #f1f5f9; font-weight: 600; }
 
         /* Popup */
         .leaflet-popup-content-wrapper {
-            border-radius: 8px;
+            border-radius: 10px;
             padding: 0;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.25);
         }
         .custom-popup h3 {
-            background: #064e3b;
+            background: #065f46;
             color: white;
-            padding: 8px 12px;
+            padding: 10px 14px;
             margin: 0;
             font-size: 13px;
             font-weight: 700;
-            border-radius: 8px 8px 0 0;
         }
         .custom-popup table {
             width: 100%;
@@ -110,29 +210,52 @@
             font-size: 12px;
         }
         .custom-popup td {
-            padding: 5px 12px;
+            padding: 6px 14px;
             border-bottom: 1px solid #f1f5f9;
         }
         .custom-popup td:first-child {
             color: #64748b;
             font-weight: 600;
-            white-space: nowrap;
         }
         .custom-popup td:last-child {
-            color: #1e293b;
+            color: #0f172a;
             font-weight: 700;
+            text-align: right;
+        }
+
+        /* Pulsing GPS Dot */
+        .gps-pulse-marker {
+            width: 18px;
+            height: 18px;
+            background: #0284c7;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #0284c7;
+            position: relative;
+        }
+        .gps-pulse-marker::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            background: rgba(2, 132, 199, 0.4);
+            animation: gps-pulse 1.8s infinite;
+        }
+        @keyframes gps-pulse {
+            0% { transform: scale(0.6); opacity: 1; }
+            100% { transform: scale(2.2); opacity: 0; }
         }
     </style>
 </head>
-<body class="bg-slate-50 flex flex-col" style="height:100vh;overflow:hidden;">
+<body class="bg-slate-50 flex flex-col" style="height:100vh; overflow:hidden;">
 
     <!-- Header -->
     <header class="bg-emerald-700 text-white shadow-md z-10 relative" style="flex-shrink:0;">
         <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
             <h1 class="text-lg font-bold flex items-center gap-2">
-                <i class="fa-solid fa-map-location-dot"></i> Ortofoto y Red Vectorial - INVU 2
+                <i class="fa-solid fa-map-location-dot"></i> Ortofoto y Red Vectorial — INVU 2
             </h1>
-            <nav class="space-x-4 text-sm">
+            <nav class="space-x-3 text-sm">
                 <a href="index.html" class="hover:text-emerald-200">Inicio</a>
                 <a href="mapa.html" class="underline font-semibold">Mapa</a>
                 <a href="modelo3d.html" class="hover:text-emerald-200">Visor 3D</a>
@@ -142,25 +265,60 @@
         </div>
     </header>
 
-    <!-- Contenedor del Mapa -->
+    <!-- Barra flotante de herramientas (Medición + GPS) -->
+    <div style="position:absolute; top:75px; left:12px; z-index:1000;">
+        <div class="toolbar-panel">
+            <button id="btn-gps" class="tool-btn" title="Activar ubicación GPS en tiempo real">
+                <i class="fa-solid fa-location-crosshairs text-sky-400"></i>
+                <span class="hidden sm:inline">GPS</span>
+            </button>
+            <div style="width:1px; background:rgba(255,255,255,0.15); margin:2px 0;"></div>
+            <button id="btn-measure-dist" class="tool-btn" title="Medir longitud entre puntos">
+                <i class="fa-solid fa-ruler text-emerald-400"></i>
+                <span class="hidden sm:inline">Medir Distancia</span>
+            </button>
+            <button id="btn-measure-area" class="tool-btn" title="Medir polígono o área">
+                <i class="fa-solid fa-draw-polygon text-amber-400"></i>
+                <span class="hidden sm:inline">Medir Área</span>
+            </button>
+            <button id="btn-measure-clear" class="tool-btn danger" title="Limpiar mediciones" style="display:none;">
+                <i class="fa-solid fa-trash-can"></i>
+                <span class="hidden sm:inline">Borrar</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Badge flotante con resultado de medición -->
+    <div id="measure-badge">
+        <i class="fa-solid fa-calculator text-emerald-400"></i>
+        <span id="measure-result">Haga clic en el mapa para iniciar</span>
+    </div>
+
+    <!-- Contenedor del Mapa Leaflet -->
     <div id="map"></div>
 
     <script>
     // ─────────────────────────────────────────────────────────────
-    // CONFIGURACIÓN DE PROYECCIÓN
-    // Todos los GeoJSON están en EPSG:32616 (UTM Zona 16N).
-    // Leaflet necesita WGS84 (EPSG:4326). Usamos proj4js para convertir.
+    // 1. CONFIGURACIÓN DE PROYECCIÓN UTM EPSG:32616 → WGS84
     // ─────────────────────────────────────────────────────────────
     proj4.defs('EPSG:32616', '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs');
 
-    /**
-     * Convierte recursivamente un array de coordenadas de UTM a WGS84.
-     * Soporta Point, LineString, Polygon, Multi* y GeometryCollection.
-     */
+    function isUtmCoordinates(coords) {
+        if (!coords || coords.length === 0) return false;
+        let c = coords;
+        while (Array.isArray(c) && Array.isArray(c[0])) {
+            c = c[0];
+        }
+        if (Array.isArray(c) && typeof c[0] === 'number') {
+            return Math.abs(c[0]) > 180 || Math.abs(c[1]) > 90;
+        }
+        return false;
+    }
+
     function utmToWgs84Coords(coords, isPoint) {
         if (isPoint || (typeof coords[0] === 'number' && coords.length >= 2)) {
             const converted = proj4('EPSG:32616', 'EPSG:4326', [coords[0], coords[1]]);
-            return [converted[0], converted[1]]; // [lng, lat]
+            return [converted[0], converted[1]];
         }
         return coords.map(c => utmToWgs84Coords(c, false));
     }
@@ -186,23 +344,22 @@
     }
 
     // ─────────────────────────────────────────────────────────────
-    // INICIALIZAR MAPA
-    // Centro provisional en Liberia; se recentrará con fitBounds
+    // 2. INICIALIZAR MAPA
     // ─────────────────────────────────────────────────────────────
     const map = L.map('map', {
         zoomControl: true,
         attributionControl: true
-    }).setView([10.638, -85.435], 16);
+    }).setView([10.638, -85.435], 17);
 
     // ─────────────────────────────────────────────────────────────
-    // CAPAS BASE
+    // 3. CAPAS BASE (POR DEFECTO ENCENDIDA SOLAMENTE LA ORTOFOTO)
     // ─────────────────────────────────────────────────────────────
     const ortofoto = L.tileLayer('./assets/tiles/{z}/{x}/{y}.png', {
         minZoom: 15,
         maxZoom: 22,
         maxNativeZoom: 21,
         attribution: 'Ortofoto 4 cm/px &mdash; INVU 2 (ABC Geomática)'
-    }).addTo(map);
+    }).addTo(map); // <--- ÚNICA CAPA ENCENDIDA POR DEFECTO
 
     const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 19,
@@ -211,30 +368,41 @@
 
     const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
+        attribution: '&copy; OpenStreetMap'
     });
 
     // ─────────────────────────────────────────────────────────────
-    // ESTILOS DE CAPAS
+    // 4. ESTILOS DE CAPAS VECTORIALES
     // ─────────────────────────────────────────────────────────────
     const estilos = {
-        perimetro:  { color: "#fbbf24", weight: 3, fillOpacity: 0,    dashArray: "8,5",  opacity: 1 },
-        calles:     { color: "#475569", weight: 4, fillOpacity: 0,    lineCap: "round",  lineJoin: "round" },
-        aceras:     { color: "#cbd5e1", weight: 2, fillOpacity: 0,    dashArray: "2,3" },
-        pluvial:    { color: "#0ea5e9", weight: 2.5, fillOpacity: 0,  dashArray: "6,3" },
-        sanitario:  { color: "#f87171", weight: 2.5, fillOpacity: 0,  dashArray: "6,3" },
-        parques:    { color: "#15803d", fillColor: "#4ade80", fillOpacity: 0.55, weight: 2 },
-        arboriz:    { color: "#166534", fillColor: "#86efac", fillOpacity: 0.45, weight: 1 }
+        perimetro: { color: "#fbbf24", weight: 3.5, fillOpacity: 0, dashArray: "8, 5", opacity: 1 },
+        aceras:    { color: "#cbd5e1", weight: 2, fillOpacity: 0, dashArray: "2, 3" },
+        pluvial:   { color: "#0ea5e9", weight: 2.5, fillOpacity: 0, dashArray: "6, 3" },
+        sanitario: { color: "#f87171", weight: 2.5, fillOpacity: 0, dashArray: "6, 3" },
+        parques:   { color: "#15803d", fillColor: "#4ade80", fillOpacity: 0.55, weight: 2 },
+        zonasVerdes: { color: "#166534", fillColor: "#86efac", fillOpacity: 0.5, weight: 1 }
     };
 
+    function estiloCalles(feature) {
+        const estado = (feature.properties && feature.properties.Estado) || '';
+        if (estado.toLowerCase() === 'regular') {
+            return { color: '#f59e0b', weight: 4.5, opacity: 0.95, dashArray: '7, 4' };
+        }
+        return { color: '#334155', weight: 4, opacity: 0.95 };
+    }
+
     // ─────────────────────────────────────────────────────────────
-    // FUNCIÓN PARA GENERAR HTML DE POPUP
+    // 5. POPUPS Y TOOLTIPS
     // ─────────────────────────────────────────────────────────────
     function buildPopup(titulo, props, campos) {
         let rows = '';
         for (const [label, key] of campos) {
-            const val = props[key];
+            let val = props[key];
             if (val !== null && val !== undefined) {
+                if (key === 'Estado') {
+                    const badgeClass = val.toLowerCase() === 'buena' ? 'color:#15803d; font-weight:bold;' : 'color:#b45309; font-weight:bold;';
+                    val = `<span style="${badgeClass}">${val}</span>`;
+                }
                 rows += `<tr><td>${label}</td><td>${val}</td></tr>`;
             }
         }
@@ -244,14 +412,14 @@
         </div>`;
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // FUNCIÓN PARA CONSTRUIR TOOLTIP AL HOVER
-    // ─────────────────────────────────────────────────────────────
     function buildTooltip(titulo, props, campos) {
         let rows = '';
         for (const [label, key] of campos) {
-            const val = props[key];
+            let val = props[key];
             if (val !== null && val !== undefined) {
+                if (key === 'Estado') {
+                    val = val === 'Buena' ? '🟢 Buena' : '🟠 Regular';
+                }
                 rows += `<div class="tooltip-row"><span class="tooltip-label">${label}:</span><span class="tooltip-value">${val}</span></div>`;
             }
         }
@@ -259,44 +427,37 @@
     }
 
     // ─────────────────────────────────────────────────────────────
-    // FUNCIÓN GENÉRICA PARA CARGAR GEOJSON (UTM → WGS84 auto)
+    // 6. CARGA SEGURA DE GEOJSON (addToMap: false por defecto)
     // ─────────────────────────────────────────────────────────────
     async function loadLayer(url, estilo, opts = {}) {
         try {
             const res = await fetch(url);
-            if (!res.ok) throw new Error(`HTTP ${res.status} al cargar ${url}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const raw = await res.json();
 
-            // Detectar si está en UTM por el CRS o por las coordenadas
-            const esUTM = raw.crs && raw.crs.properties &&
-                          raw.crs.properties.name &&
-                          raw.crs.properties.name.includes('32616');
+            const necesitaReproyeccion = (raw.crs && raw.crs.properties && raw.crs.properties.name && raw.crs.properties.name.includes('32616')) ||
+                                        (raw.features && raw.features.length > 0 && isUtmCoordinates(raw.features[0].geometry?.coordinates));
 
-            const data = esUTM ? convertGeoJSON(raw) : raw;
+            const data = necesitaReproyeccion ? convertGeoJSON(raw) : raw;
 
             const layer = L.geoJSON(data, {
                 style: typeof estilo === 'function' ? estilo : () => estilo,
-                pointToLayer: opts.pointToLayer,
                 onEachFeature: (feature, lyr) => {
                     const props = feature.properties || {};
 
-                    // --- Tooltip al hover (mouse y touch) ---
                     if (opts.tooltipTitle) {
-                        lyr.bindTooltip(
-                            () => buildTooltip(opts.tooltipTitle, props, opts.campos || []),
-                            { sticky: true, opacity: 0.95 }
-                        );
+                        lyr.bindTooltip(() => buildTooltip(opts.tooltipTitle, props, opts.campos || []), {
+                            sticky: true,
+                            opacity: 0.95
+                        });
                     }
 
-                    // --- Popup al clic ---
                     if (opts.popupTitle) {
-                        lyr.bindPopup(
-                            buildPopup(opts.popupTitle, props, opts.campos || []),
-                            { maxWidth: 280 }
-                        );
+                        lyr.bindPopup(buildPopup(opts.popupTitle, props, opts.campos || []), {
+                            maxWidth: 280
+                        });
                     }
 
-                    // Highlight on hover para polígonos/líneas
                     if (opts.highlight) {
                         lyr.on('mouseover', function() { this.setStyle(opts.highlight); });
                         lyr.on('mouseout', function() { layer.resetStyle(this); });
@@ -304,89 +465,103 @@
                 }
             });
 
-            if (opts.addToMap !== false) layer.addTo(map);
+            // Solo se agrega al mapa si explícitamente se pide (por defecto NO se agregan)
+            if (opts.addToMap === true) layer.addTo(map);
             return layer;
-
         } catch (err) {
             console.warn(`No se pudo cargar ${url}:`, err.message);
-            return L.layerGroup(); // capa vacía para no romper el control
+            return L.layerGroup();
         }
     }
 
     // ─────────────────────────────────────────────────────────────
-    // CARGAR TODAS LAS CAPAS Y CONFIGURAR EL MAPA
+    // 7. INICIALIZAR TODAS LAS CAPAS Y CAJETINES CON BOTÓN DE OCULTAR
     // ─────────────────────────────────────────────────────────────
     async function initMap() {
-
-        // Perímetro del barrio (polígono base — se usa para hacer fitBounds)
+        // Perímetro (apagado por defecto, pero se calculan sus límites para fitBounds)
         const perimetroLayer = await loadLayer('./assets/Perimetro.geojson', estilos.perimetro, {
+            addToMap: false,
             tooltipTitle: '📍 Límite INVU 2',
             popupTitle:   'Perímetro INVU 2',
             campos: [['ID', 'id'], ['Área (Ha)', 'AreaHa']],
             highlight: { color: '#f59e0b', weight: 5 }
         });
 
-        // Calles
-        const callesLayer = await loadLayer('./assets/Calles.geojson', estilos.calles, {
+        // Calles (apagada por defecto)
+        const callesLayer = await loadLayer('./assets/Calles.geojson', estiloCalles, {
+            addToMap: false,
             tooltipTitle: '🛣️ Calle',
             popupTitle:   'Red Vial',
-            campos: [['ID', 'id'], ['Longitud (m)', 'long']],
+            campos: [['ID', 'id'], ['Longitud (m)', 'long'], ['Condición', 'Estado']],
             highlight: { color: '#0f172a', weight: 6 }
         });
 
-        // Aceras
+        // Aceras (apagada por defecto)
         const acerasLayer = await loadLayer('./assets/Aceras.geojson', estilos.aceras, {
+            addToMap: false,
             tooltipTitle: '🚶 Acera',
-            popupTitle:   'Acera Peatonal',
+            popupTitle:   'Infraestructura Peatonal',
             campos: [['ID', 'id'], ['Longitud (m)', 'long']],
             highlight: { color: '#94a3b8', weight: 4 }
         });
 
-        // Alcantarillado Pluvial
+        // Pluvial (apagada por defecto)
         const pluvialLayer = await loadLayer('./assets/alcantpluvial.geojson', estilos.pluvial, {
+            addToMap: false,
             tooltipTitle: '💧 Alcantarillado Pluvial',
             popupTitle:   'Red Pluvial',
             campos: [['ID', 'id'], ['Longitud (m)', 'long']],
             highlight: { color: '#0369a1', weight: 5 }
         });
 
-        // Alcantarillado Sanitario
+        // Sanitario (apagada por defecto)
         const sanitarioLayer = await loadLayer('./assets/alcantsanitario.geojson', estilos.sanitario, {
+            addToMap: false,
             tooltipTitle: '🔴 Alcantarillado Sanitario',
             popupTitle:   'Red Sanitaria',
             campos: [['ID', 'id'], ['Longitud (m)', 'long']],
             highlight: { color: '#b91c1c', weight: 5 }
         });
 
-        // Parques
+        // Parques (apagada por defecto)
         const parquesLayer = await loadLayer('./assets/parques.geojson', estilos.parques, {
+            addToMap: false,
             tooltipTitle: '🌳 Parque',
             popupTitle:   'Parque / Área Recreativa',
             campos: [['ID', 'id'], ['Área (m²)', 'aream2']],
             highlight: { color: '#14532d', weight: 3, fillOpacity: 0.7 }
         });
 
-        // Arborización y Zonas Verdes (archivo grande, puede tardar)
-        const arboLayer = await loadLayer('./assets/areas_verdes.json', estilos.arboriz, {
-            tooltipTitle: '🌿 Zona Verde',
-            popupTitle:   'Arborización / Zona Verde',
-            campos: [['FID', 'fid'], ['Clase DN', 'DN']],
-            highlight: { color: '#166534', weight: 2, fillOpacity: 0.65 }
+        // Zonas Verdes y Arborización (apagada por defecto)
+        let zonasVerdesLayer = await loadLayer('./assets/zonas_verdes.geojson', estilos.zonasVerdes, {
+            addToMap: false,
+            tooltipTitle: '🌿 Zona Verde / Árbol',
+            popupTitle:   'Arborización y Zona Verde',
+            campos: [['ID', 'id'], ['FID', 'fid'], ['Clase DN', 'DN']],
+            highlight: { color: '#166534', weight: 2, fillOpacity: 0.7 }
         });
 
-        // ── Centrar mapa sobre el perímetro al máximo zoom posible ──
+        if (zonasVerdesLayer.getLayers().length === 0) {
+            zonasVerdesLayer = await loadLayer('./assets/areas_verdes.geojson', estilos.zonasVerdes, {
+                addToMap: false,
+                tooltipTitle: '🌿 Zona Verde / Árbol',
+                popupTitle:   'Arborización y Zona Verde',
+                campos: [['ID', 'id'], ['FID', 'fid'], ['Clase DN', 'DN']],
+                highlight: { color: '#166534', weight: 2, fillOpacity: 0.7 }
+            });
+        }
+
+        // ── CENTRAR Y AJUSTAR LA ORTOFOTO AL MÁXIMO ZOOM POSIBLE ──
         try {
             const bounds = perimetroLayer.getBounds();
             if (bounds.isValid()) {
                 map.fitBounds(bounds, { padding: [20, 20], maxZoom: 21 });
             }
         } catch(e) {
-            console.warn('No se pudo hacer fitBounds:', e);
+            console.warn('fitBounds:', e);
         }
 
-        // ─────────────────────────────────────────────────────────
-        // CONTROL DE CAPAS
-        // ─────────────────────────────────────────────────────────
+        // ── CAJETÍN 1: CONTROL DE CAPAS CON BOTÓN PARA OCULTAR ──
         const baseMaps = {
             "<i class='fa-solid fa-satellite mr-1'></i> Ortofoto Dron (4 cm/px)": ortofoto,
             "<i class='fa-solid fa-earth-americas mr-1'></i> Satélite Esri": satellite,
@@ -395,63 +570,236 @@
 
         const overlayMaps = {
             "<span style='color:#fbbf24;'>━━</span> Límite INVU 2": perimetroLayer,
-            "<span style='color:#475569;'>━━</span> Calles": callesLayer,
-            "<span style='color:#94a3b8;'>┅┅</span> Aceras": acerasLayer,
+            "<span style='color:#334155;'>━━</span> Calles (Buena)": callesLayer,
+            "<span style='color:#cbd5e1;'>┅┅</span> Aceras": acerasLayer,
             "<span style='color:#0ea5e9;'>┅┅</span> Alcant. Pluvial": pluvialLayer,
             "<span style='color:#f87171;'>┅┅</span> Alcant. Sanitario": sanitarioLayer,
-            "<span style='background:#4ade80;border:2px solid #15803d;display:inline-block;width:14px;height:10px;border-radius:2px;'></span> Parques": parquesLayer,
-            "<span style='background:#86efac;border:2px solid #166534;display:inline-block;width:14px;height:10px;border-radius:2px;'></span> Zonas Verdes": arboLayer
+            "<span style='background:#4ade80;border:2px solid #15803d;display:inline-block;width:12px;height:10px;border-radius:2px;'></span> Parques": parquesLayer,
+            "<span style='background:#86efac;border:2px solid #166534;display:inline-block;width:12px;height:10px;border-radius:2px;'></span> Zonas Verdes": zonasVerdesLayer
         };
 
-        L.control.layers(baseMaps, overlayMaps, {
-            collapsed: false,
-            position: 'topright'
-        }).addTo(map);
+        const layerControl = L.control.layers(baseMaps, overlayMaps, { collapsed: false, position: 'topright' }).addTo(map);
 
-        // ─────────────────────────────────────────────────────────
-        // LEYENDA PERSONALIZADA
-        // ─────────────────────────────────────────────────────────
+        // Incorporar encabezado con botón de ocultar en el cajetín de capas
+        const layerContainer = layerControl.getContainer();
+        const layerContentWrapper = document.createElement('div');
+        layerContentWrapper.id = 'layer-control-inner-body';
+
+        // Mover el contenido nativo al wrapper interno
+        while (layerContainer.firstChild) {
+            layerContentWrapper.appendChild(layerContainer.firstChild);
+        }
+
+        // Crear barra superior del cajetín con botón de minimizar/ocultar
+        const layerHeader = document.createElement('div');
+        layerHeader.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:3px 2px 6px 2px; margin-bottom:6px; border-bottom:1px solid #e2e8f0; font-weight:700; color:#0f172a; font-size:12px;';
+        layerHeader.innerHTML = `
+            <span style="display:flex; align-items:center; gap:5px;"><i class="fa-solid fa-layer-group text-emerald-600"></i> Capas</span>
+            <button type="button" class="cajetin-btn" id="btn-toggle-layers-cajetin" title="Ocultar / Mostrar lista de capas">
+                <i class="fa-solid fa-chevron-up" id="icon-layers-cajetin"></i> <span id="txt-layers-cajetin">Ocultar</span>
+            </button>
+        `;
+
+        layerContainer.appendChild(layerHeader);
+        layerContainer.appendChild(layerContentWrapper);
+
+        document.getElementById('btn-toggle-layers-cajetin').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isHidden = layerContentWrapper.style.display === 'none';
+            layerContentWrapper.style.display = isHidden ? 'block' : 'none';
+            document.getElementById('icon-layers-cajetin').className = isHidden ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+            document.getElementById('txt-layers-cajetin').textContent = isHidden ? 'Ocultar' : 'Mostrar';
+        });
+
+        // ── CAJETÍN 2: LEYENDA / SIMBOLOGÍA CON BOTÓN PARA OCULTAR ──
         const legend = L.control({ position: 'bottomleft' });
         legend.onAdd = function() {
             const div = L.DomUtil.create('div', 'legend-control');
             div.innerHTML = `
-                <h4><i class="fa-solid fa-layer-group" style="margin-right:5px;"></i>Simbología</h4>
-                <div class="legend-item">
-                    <span class="legend-line legend-line-dashed" style="border-color:#fbbf24; width:28px;"></span>
-                    Límite INVU 2
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; padding-bottom:4px; border-bottom:2px solid #10b981; font-weight:700; color:#0f172a;">
+                    <span style="font-size:13px; display:flex; align-items:center; gap:5px;"><i class="fa-solid fa-palette text-emerald-600"></i> Simbología</span>
+                    <button type="button" class="cajetin-btn" id="btn-toggle-legend-cajetin" title="Ocultar / Mostrar simbología">
+                        <i class="fa-solid fa-chevron-up" id="icon-legend-cajetin"></i> <span id="txt-legend-cajetin">Ocultar</span>
+                    </button>
                 </div>
-                <div class="legend-item">
-                    <span class="legend-line" style="background:#475569; height:4px;"></span>
-                    Calles
-                </div>
-                <div class="legend-item">
-                    <span class="legend-line" style="background:#cbd5e1; height:2px;"></span>
-                    Aceras
-                </div>
-                <div class="legend-item">
-                    <span class="legend-line legend-line-dashed" style="border-color:#0ea5e9; width:28px;"></span>
-                    Alcant. Pluvial
-                </div>
-                <div class="legend-item">
-                    <span class="legend-line legend-line-dashed" style="border-color:#f87171; width:28px;"></span>
-                    Alcant. Sanitario
-                </div>
-                <div class="legend-item">
-                    <span class="legend-polygon" style="background:#4ade80;border-color:#15803d;"></span>
-                    Parques
-                </div>
-                <div class="legend-item">
-                    <span class="legend-polygon" style="background:#86efac;border-color:#166534;"></span>
-                    Zonas Verdes
+                <div id="legend-inner-content">
+                    <div class="legend-item"><span class="legend-line legend-line-dashed" style="border-color:#fbbf24;"></span><span>Límite INVU 2</span></div>
+                    <div class="legend-item"><span class="legend-line" style="background:#334155;"></span><span>Calles: Buena</span></div>
+                    <div class="legend-item"><span class="legend-line legend-line-dashed" style="border-color:#f59e0b;"></span><span>Calles: Regular</span></div>
+                    <div class="legend-item"><span class="legend-line" style="background:#cbd5e1; height:2px;"></span><span>Aceras</span></div>
+                    <div class="legend-item"><span class="legend-line legend-line-dashed" style="border-color:#0ea5e9;"></span><span>Alcant. Pluvial</span></div>
+                    <div class="legend-item"><span class="legend-line legend-line-dashed" style="border-color:#f87171;"></span><span>Alcant. Sanitario</span></div>
+                    <div class="legend-item"><span class="legend-polygon" style="background:#4ade80; border-color:#15803d;"></span><span>Parques</span></div>
+                    <div class="legend-item"><span class="legend-polygon" style="background:#86efac; border-color:#166534;"></span><span>Zonas Verdes</span></div>
                 </div>
             `;
             return div;
         };
         legend.addTo(map);
+
+        document.getElementById('btn-toggle-legend-cajetin').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const content = document.getElementById('legend-inner-content');
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'block' : 'none';
+            document.getElementById('icon-legend-cajetin').className = isHidden ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+            document.getElementById('txt-legend-cajetin').textContent = isHidden ? 'Ocultar' : 'Mostrar';
+        });
     }
 
-    // Iniciar
     initMap();
+
+    // ─────────────────────────────────────────────────────────────
+    // 8. GEOLOCALIZACIÓN GPS (TELÉFONO / DISPOSITIVO)
+    // ─────────────────────────────────────────────────────────────
+    let gpsMarker = null, gpsCircle = null, gpsWatchId = null, isGpsActive = false;
+    const btnGps = document.getElementById('btn-gps');
+
+    btnGps.addEventListener('click', () => {
+        if (!isGpsActive) {
+            if (!navigator.geolocation) {
+                alert('La geolocalización no es soportada por este navegador.');
+                return;
+            }
+            btnGps.classList.add('active');
+            btnGps.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-emerald-400"></i><span class="hidden sm:inline">Buscando GPS...</span>';
+
+            gpsWatchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude, lng = pos.coords.longitude, accuracy = pos.coords.accuracy;
+                    if (!gpsMarker) {
+                        const icon = L.divIcon({ className: 'gps-pulse-marker', iconSize: [18, 18], iconAnchor: [9, 9] });
+                        gpsMarker = L.marker([lat, lng], { icon: icon }).addTo(map);
+                        gpsCircle = L.circle([lat, lng], { radius: accuracy, color: '#0284c7', fillColor: '#38bdf8', fillOpacity: 0.15, weight: 1 }).addTo(map);
+                        map.setView([lat, lng], Math.max(map.getZoom(), 18));
+                    } else {
+                        gpsMarker.setLatLng([lat, lng]);
+                        gpsCircle.setLatLng([lat, lng]);
+                        gpsCircle.setRadius(accuracy);
+                    }
+                    gpsMarker.bindTooltip(`📍 Tu Ubicación<br>Precisión: ±${Math.round(accuracy)}m`, { sticky: true });
+                    isGpsActive = true;
+                    btnGps.innerHTML = '<i class="fa-solid fa-location-arrow text-emerald-300"></i><span class="hidden sm:inline">GPS Activo</span>';
+                },
+                (err) => {
+                    console.error('Error GPS:', err);
+                    alert('No se pudo acceder al GPS. Asegúrate de otorgar permisos de ubicación.');
+                    stopGps();
+                },
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
+        } else {
+            stopGps();
+        }
+    });
+
+    function stopGps() {
+        if (gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
+        if (gpsMarker) { map.removeLayer(gpsMarker); gpsMarker = null; }
+        if (gpsCircle) { map.removeLayer(gpsCircle); gpsCircle = null; }
+        isGpsActive = false;
+        btnGps.classList.remove('active');
+        btnGps.innerHTML = '<i class="fa-solid fa-location-crosshairs text-sky-400"></i><span class="hidden sm:inline">GPS</span>';
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 9. HERRAMIENTAS DE MEDICIÓN (LONGITUD Y ÁREA)
+    // ─────────────────────────────────────────────────────────────
+    let measureMode = null, measurePoints = [], measureMarkers = [], measureFeature = null;
+    const btnDist = document.getElementById('btn-measure-dist');
+    const btnArea = document.getElementById('btn-measure-area');
+    const btnClear = document.getElementById('btn-measure-clear');
+    const badge = document.getElementById('measure-badge');
+    const badgeResult = document.getElementById('measure-result');
+
+    btnDist.addEventListener('click', () => toggleMeasureMode('dist'));
+    btnArea.addEventListener('click', () => toggleMeasureMode('area'));
+    btnClear.addEventListener('click', clearMeasurements);
+
+    function toggleMeasureMode(mode) {
+        if (measureMode === mode) {
+            clearMeasurements();
+        } else {
+            clearMeasurements();
+            measureMode = mode;
+            map.getContainer().style.cursor = 'crosshair';
+            btnDist.classList.toggle('active', mode === 'dist');
+            btnArea.classList.toggle('active', mode === 'area');
+            btnClear.style.display = 'flex';
+            badge.style.display = 'flex';
+            badgeResult.textContent = mode === 'dist'
+                ? 'Haga clic para iniciar línea de distancia (doble clic para terminar)'
+                : 'Haga clic para dibujar polígono de área (doble clic para cerrar)';
+        }
+    }
+
+    map.on('click', (e) => {
+        if (!measureMode) return;
+        const pt = [e.latlng.lat, e.latlng.lng];
+        measurePoints.push(pt);
+
+        const marker = L.circleMarker(pt, {
+            radius: 5, color: '#ffffff',
+            fillColor: measureMode === 'dist' ? '#10b981' : '#f59e0b',
+            fillOpacity: 1, weight: 2
+        }).addTo(map);
+        measureMarkers.push(marker);
+        updateMeasureRender();
+    });
+
+    map.on('dblclick', (e) => {
+        if (!measureMode) return;
+        L.DomEvent.stop(e);
+        finishMeasurement();
+    });
+
+    function updateMeasureRender() {
+        if (measurePoints.length < 2) return;
+        if (measureFeature) map.removeLayer(measureFeature);
+
+        if (measureMode === 'dist') {
+            measureFeature = L.polyline(measurePoints, { color: '#10b981', weight: 4, dashArray: '6, 6' }).addTo(map);
+            const line = turf.lineString(measurePoints.map(p => [p[1], p[0]]));
+            const lengthKm = turf.length(line, { units: 'kilometers' });
+            const lengthM = lengthKm * 1000;
+            const txt = lengthM < 1000 ? `${lengthM.toFixed(1)} m` : `${lengthKm.toFixed(3)} km`;
+            badgeResult.textContent = `📏 Longitud: ${txt}`;
+        } else if (measureMode === 'area') {
+            measureFeature = L.polygon(measurePoints, { color: '#f59e0b', fillColor: '#fbbf24', fillOpacity: 0.35, weight: 3 }).addTo(map);
+            if (measurePoints.length >= 3) {
+                const closedCoords = [...measurePoints, measurePoints[0]].map(p => [p[1], p[0]]);
+                const poly = turf.polygon([closedCoords]);
+                const areaM2 = turf.area(poly);
+                const areaHa = areaM2 / 10000;
+                const txt = areaM2 >= 10000
+                    ? `${areaM2.toLocaleString('es-CR', {maximumFractionDigits:1})} m² (${areaHa.toFixed(2)} Ha)`
+                    : `${areaM2.toFixed(1)} m²`;
+                badgeResult.textContent = `📐 Superficie: ${txt}`;
+            }
+        }
+    }
+
+    function finishMeasurement() {
+        if (!measureMode) return;
+        map.getContainer().style.cursor = '';
+        btnDist.classList.remove('active');
+        btnArea.classList.remove('active');
+        measureMode = null;
+        badgeResult.innerHTML = badgeResult.textContent + ' <span class="text-xs text-slate-300 ml-2">(Finalizado)</span>';
+    }
+
+    function clearMeasurements() {
+        measureMode = null;
+        measurePoints = [];
+        if (measureFeature) { map.removeLayer(measureFeature); measureFeature = null; }
+        measureMarkers.forEach(m => map.removeLayer(m));
+        measureMarkers = [];
+        map.getContainer().style.cursor = '';
+        btnDist.classList.remove('active');
+        btnArea.classList.remove('active');
+        btnClear.style.display = 'none';
+        badge.style.display = 'none';
+    }
     </script>
 </body>
 </html>

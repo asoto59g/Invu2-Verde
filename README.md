@@ -6,6 +6,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Activo-22c55e?logo=github)](https://asoto59g.github.io/Invu2-Verde/)
 [![Leaflet](https://img.shields.io/badge/Leaflet-1.9.4-brightgreen)](https://leafletjs.com)
 [![Three.js](https://img.shields.io/badge/Three.js-r160-black)](https://threejs.org)
+[![Turf.js](https://img.shields.io/badge/Turf.js-6.5-orange)](https://turfjs.org/)
 [![Licencia](https://img.shields.io/badge/Licencia-Uso%20Educativo-blue)](#)
 
 ---
@@ -14,9 +15,7 @@
 
 **Invu 2 Verde** es una plataforma de información territorial desarrollada por [ABC Geomática Agrícola SRL](https://abcgeomatica.com) como herramienta de gestión ambiental y diagnóstico urbano para el Barrio INVU 2 en Liberia, Guanacaste, Costa Rica.
 
-Fue generada a partir de un levantamiento aerofotogramétrico con dron (ortofoto 4 cm/px, 13 de octubre de 2026) y digitalización manual de infraestructura vial, peatonal, redes hidráulicas y cobertura verde.
-
-**Objetivo:** Proveer a la comunidad y al gobierno local de información territorial precisa para la formulación de propuestas urbanas sostenibles.
+Generada a partir de un levantamiento aerofotogramétrico con dron (ortofoto 4 cm/px, 13 de octubre de 2026) y digitalización de infraestructura vial, peatonal, redes hidráulicas y cobertura verde.
 
 ---
 
@@ -25,8 +24,8 @@ Fue generada a partir de un levantamiento aerofotogramétrico con dron (ortofoto
 ```
 Invu2-Verde/
 ├── index.html              # Página principal (estadísticas, accesos rápidos)
-├── mapa.html               # Visor cartográfico interactivo (Leaflet)
-├── modelo3d.html           # Visor de modelo 3D fotogramétrico (Three.js)
+├── mapa.html               # Visor cartográfico interactivo (Leaflet + GPS + Mediciones)
+├── modelo3d.html           # Visor 3D fotogramétrico interactivo (Three.js estilo Sketchfab)
 ├── reflexion.html          # Página de visión comunitaria y propuestas
 ├── acerca.html             # Información del proyecto y equipo
 ├── README.md               # Este archivo
@@ -36,207 +35,63 @@ Invu2-Verde/
     ├── models/             # Modelo 3D fotogramétrico (ODM/OpenDroneMap)
     │   ├── odm_textured_model_geo.obj   # Malla 3D
     │   ├── odm_textured_model_geo.mtl   # Materiales
-    │   └── textures/                    # Texturas PNG (66 archivos)
-    │       └── odm_textured_model_geo_material000X_map_Kd.png
-    ├── Perimetro.geojson   # Límite del Barrio INVU 2 (polígono)
-    ├── Calles.geojson      # Red vial (MultiLineString)
-    ├── Aceras.geojson      # Red peatonal (MultiLineString)
-    ├── alcantpluvial.geojson    # Alcantarillado pluvial (MultiLineString)
-    ├── alcantsanitario.geojson  # Alcantarillado sanitario (MultiLineString)
-    ├── parques.geojson     # Parques y áreas recreativas (MultiPolygon)
-    └── areas_verdes.json   # Arborización y zonas verdes (MultiPolygon)
+    │   └── textures/                    # 67 texturas PNG
+    ├── Perimetro.geojson       # Límite del Barrio INVU 2 (polígono)
+    ├── Calles.geojson          # Red vial con condición ("Buena" vs "Regular")
+    ├── Aceras.geojson          # Red peatonal
+    ├── alcantpluvial.geojson    # Red de alcantarillado pluvial
+    ├── alcantsanitario.geojson  # Red de alcantarillado sanitario
+    ├── parques.geojson         # Parques y áreas recreativas
+    └── zonas_verdes.geojson    # Arborización y zonas verdes vectorizadas
 ```
 
-> ⚠️ **Nota sobre sistema de coordenadas:** Todos los archivos GeoJSON están en **EPSG:32616** (UTM Zona 16N). El visor los reproyecta automáticamente a WGS84 usando [proj4js](https://github.com/proj4js/proj4js).
-
 ---
 
-## 📄 Páginas del Sitio
+## 📄 Características de las Páginas
 
-### `index.html` — Inicio
-Página de presentación con:
-- Indicadores clave del barrio (superficie, red vial, aceras, coberturas)
-- Accesos directos al mapa y visor 3D
-- Tarjetas de resumen de infraestructura y servicios municipales
+### 1. `mapa.html` — Visor Cartográfico y de Campo
 
-### `mapa.html` — Mapa Interactivo
-Visor cartográfico construido con **Leaflet.js** que incluye:
-
-| Característica | Detalle |
+| Funcionalidad | Descripción |
 |---|---|
-| **Capa base** | Ortofoto de dron 4 cm/px (tiles XYZ locales, zoom 15–21) |
-| **Capas base alternativas** | Satélite Esri, OpenStreetMap |
-| **Capas vectoriales** | Perímetro, Calles, Aceras, Pluvial, Sanitario, Parques, Zonas Verdes |
-| **Reproyección** | UTM EPSG:32616 → WGS84 con proj4js (automática) |
-| **Simbología** | Colores diferenciados por tipo de capa + leyenda visual |
-| **Tooltips** | Al deslizar el mouse (hover) o tocar en móvil: nombre de capa y campos |
-| **Popups** | Al hacer clic: todos los campos del feature en tabla |
-| **Control de capas** | Panel para activar/desactivar capas individualmente |
-| **fitBounds** | El mapa se centra y ajusta al máximo zoom posible sobre el perímetro |
+| **Capa Base Ortofoto** | Teselas locales de ortofoto a 4 cm/px (Zoom 15–22). |
+| **Bases Alternativas** | Esri World Imagery (Satélite) y OpenStreetMap. |
+| **Condición de Calles** | Representación diferenciada de red vial según su estado: **Buena** (línea sólida oscura) vs **Regular** (línea discontinua ámbar). |
+| **Arborización y Parques** | Cobertura verde vectorizada (`zonas_verdes.geojson`) con popup de datos y resaltado hover. |
+| **GPS del Teléfono** | Botón flotante para activar geolocalización en tiempo real con precisión en metros y marcador pulsante. |
+| **Medición de Distancia** | Herramienta para trazar líneas continuas con cálculo geodésico exacto en metros y kilómetros. |
+| **Medición de Área** | Herramienta para trazar polígonos y calcular superficie en m² y Hectáreas (Ha). |
+| **Reproyección Automática** | Convierte automáticamente coordenadas UTM EPSG:32616 a WGS84 con `proj4js`. |
+| **Simbología y Tooltips** | Leyenda completa en esquina inferior izquierda y tooltips interactivos al pasar el mouse o dedo en el teléfono. |
 
-**Simbología de capas:**
+### 2. `modelo3d.html` — Visor 3D Estilo Sketchfab
 
-| Capa | Color | Tipo |
-|---|---|---|
-| Límite INVU 2 | 🟡 Amarillo punteado | Polígono (sin relleno) |
-| Calles | ⬛ Gris oscuro | Línea gruesa |
-| Aceras | ⬜ Gris claro | Línea delgada |
-| Alcant. Pluvial | 🔵 Celeste | Línea punteada |
-| Alcant. Sanitario | 🔴 Rojo | Línea punteada |
-| Parques | 🟢 Verde intenso | Polígono con relleno |
-| Zonas Verdes | 🟩 Verde claro | Polígono con relleno |
-
-### `modelo3d.html` — Visor 3D
-Visor interactivo del modelo fotogramétrico construido con **Three.js**:
-
-| Característica | Detalle |
+| Funcionalidad | Descripción |
 |---|---|
-| **Formato** | OBJ + MTL (generado con OpenDroneMap) |
-| **Texturas** | 66 imágenes PNG en `assets/models/textures/` |
-| **Recentrado** | El modelo se centra automáticamente compensando coordenadas UTM |
-| **Cámara** | Perspectiva 45° con distancia adaptativa al tamaño del modelo |
-| **Controles** | Rotar (clic+arrastrar), Zoom (rueda), Pan (clic derecho) con amortiguación |
-| **Iluminación** | Luz ambiental + luz solar + luz de relleno |
-| **Progreso** | Barra de progreso real durante la descarga |
-
-### `reflexion.html` — Comunidad
-Página con análisis cualitativo, propuestas de mejora urbana y visión comunitaria del barrio.
-
-### `acerca.html` — Acerca de
-Información sobre el proyecto, metodología, equipo y tecnologías utilizadas.
+| **Vista Inicial** | Vista superior con zoom levemente inclinada (~72° desde horizontal), encuadrando el barrio con el máximo detalle. |
+| **Controles Sketchfab** | • **1 dedo / Clic Izq:** Rotar órbita alrededor del pivote con amortiguación suave.<br>• **2 dedos / Clic Der:** Desplazamiento (Pan) en el plano de pantalla.<br>• **Rueda / Pellizco:** Zoom progresivo. |
+| **Doble Clic (Pivote Dinámico)** | Al hacer doble clic sobre cualquier punto del modelo 3D, el centro de rotación se reubica suavemente en esa superficie con retícula visual indicadora. |
+| **Barra Inferior Flotante** | Botones rápidos para: Vista Inicial, Vista en Planta (Cenital), Perspectiva 45°, Auto-Giro y Ayuda. |
+| **Iluminación** | Luz ambiental hemisférica y luz direccional calibradas para texturas fotogramétricas ODM. |
 
 ---
 
-## 🛠️ Tecnologías Utilizadas
+## 📋 Simbología Oficial del Mapa
 
-| Tecnología | Versión | Uso |
+| Elemento | Estilo Visual | Propiedades en Popup |
 |---|---|---|
-| [Leaflet.js](https://leafletjs.com) | 1.9.4 | Mapa interactivo 2D |
-| [Three.js](https://threejs.org) | r160 | Visor 3D |
-| [Proj4js](https://github.com/proj4js/proj4js) | 2.11.0 | Reproyección de coordenadas UTM→WGS84 |
-| [Tailwind CSS](https://tailwindcss.com) | CDN | Estilos y diseño responsivo |
-| [Font Awesome](https://fontawesome.com) | 6.4.0 | Iconografía |
-| [OpenDroneMap](https://opendronemap.org) | — | Procesamiento fotogramétrico del modelo 3D |
-
----
-
-## 📊 Datos Técnicos del Levantamiento
-
-| Parámetro | Valor |
-|---|---|
-| Fecha de vuelo | 13 de Octubre, 2026 |
-| Resolución de la ortofoto | 4 cm/px |
-| Sistema de coordenadas | EPSG:32616 (UTM Zona 16N, WGS84) |
-| Área total del barrio | 11.41 Ha |
-| Cobertura de los tiles | Zoom 15 – 21 |
-| Modelo 3D | OBJ + 66 texturas (ODM) |
-
----
-
-## 📏 Indicadores del Barrio
-
-| Infraestructura | Valor |
-|---|---|
-| Superficie total | 11.41 Ha |
-| Red vial (calles) | 2,645 m |
-| Red peatonal (aceras) | 4,430 m |
-| Alcantarillado pluvial | 2,379 m |
-| Alcantarillado sanitario | 2,474 m |
-| Parques y áreas recreativas | 9,122 m² |
-| Arborización y zonas verdes | ~15% del área total (1.71 Ha) |
-
----
-
-## 🚀 Despliegue en GitHub Pages
-
-El sitio es completamente estático (HTML + JS + Assets). Para desplegarlo:
-
-1. Haz fork o clona el repositorio
-2. Ve a **Settings → Pages** en GitHub
-3. Selecciona la rama `main` y el folder raíz `/`
-4. El sitio estará disponible en `https://<usuario>.github.io/<repositorio>/`
-
-> **⚠️ Importante:** GitHub Pages es sensible a mayúsculas/minúsculas en nombres de archivos. Los nombres de los GeoJSON deben coincidir exactamente con las rutas en el código HTML.
-
----
-
-## 🔧 Desarrollo Local
-
-Para probar el sitio localmente necesitas un servidor HTTP (no puedes abrir `index.html` directamente en el navegador por restricciones CORS al cargar GeoJSON):
-
-```bash
-# Con Python
-python -m http.server 8000
-
-# Con Node.js (npx)
-npx serve .
-
-# Con VS Code: instala la extensión "Live Server"
-```
-
-Luego abre `http://localhost:8000` en tu navegador.
-
----
-
-## 📋 Campos de las Capas GeoJSON
-
-### Perímetro (`Perimetro.geojson`)
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | Integer | Identificador del polígono |
-| `AreaHa` | Float | Área en hectáreas |
-
-### Calles (`Calles.geojson`)
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | Integer | Identificador del segmento |
-| `long` | Integer | Longitud del segmento en metros |
-
-### Aceras (`Aceras.geojson`)
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | Integer | Identificador del segmento |
-| `long` | Integer | Longitud del segmento en metros |
-
-### Alcantarillado Pluvial (`alcantpluvial.geojson`)
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | Integer | Identificador del tramo |
-| `long` | Integer | Longitud del tramo en metros |
-
-### Alcantarillado Sanitario (`alcantsanitario.geojson`)
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | Integer | Identificador del tramo |
-| `long` | Integer | Longitud del tramo en metros |
-
-### Parques (`parques.geojson`)
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | Integer | Identificador del parque |
-| `aream2` | Integer | Área en metros cuadrados |
-
-### Áreas Verdes (`areas_verdes.json`)
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `fid` | Integer | ID de la feature (clasificación raster vectorizada) |
-| `DN` | Integer | Valor digital del raster fuente (DN=1: vegetación) |
+| **Límite INVU 2** | 🟡 Línea discontinua amarilla | ID, Área (Ha) |
+| **Calles (Buena)** | ⬛ Línea sólida gris oscuro (4px) | ID, Longitud (m), Condición (Buena) |
+| **Calles (Regular)** | 🟠 Línea discontinua ámbar (4.5px) | ID, Longitud (m), Condición (Regular) |
+| **Aceras** | ⬜ Línea discontinua gris claro (2px) | ID, Longitud (m) |
+| **Alcant. Pluvial** | 🔵 Línea discontinua celeste (2.5px) | ID, Longitud (m) |
+| **Alcant. Sanitario**| 🔴 Línea discontinua roja (2.5px) | ID, Longitud (m) |
+| **Parques** | 🟢 Polígono verde esmeralda con borde | ID, Área (m²) |
+| **Zonas Verdes** | 🟩 Polígono verde claro semitransparente | ID, FID, Clase DN |
 
 ---
 
 ## 👥 Créditos
 
 **Desarrollado por:** ABC Geomática Agrícola SRL  
-**Levantamiento aerofotogramétrico:** ABC Geomática Agrícola SRL  
-**Procesamiento fotogramétrico:** OpenDroneMap  
-**Datos cartográficos:** © ABC Geomática Agrícola SRL, 2026  
-
----
-
-## 📄 Licencia
-
-Este proyecto es de uso educativo y comunitario. Los datos geoespaciales son propiedad de ABC Geomática Agrícola SRL. No se permite su reproducción comercial sin autorización expresa.
-
----
-
-*Última actualización: Octubre 2026 | Inspección aerofotogramétrica: 13 de Octubre, 2026*
+**Levantamiento aerofotogramétrico:** ABC Geomática Agrícola SRL (13 de Octubre, 2026)  
+**Procesamiento:** OpenDroneMap & QGIS  
