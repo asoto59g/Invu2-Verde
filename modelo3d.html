@@ -10,34 +10,80 @@
         html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: #0f172a; }
         #canvas-container { width: 100vw; height: calc(100vh - 61px); position: relative; }
 
+        /* ── Pantalla de carga ── */
         #loading-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #0f172a; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 50; color: #34d399;
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            z-index: 50; color: #34d399;
         }
-
         #progress-bar-bg {
-            width: 320px; height: 8px; background: #1e293b;
-            border-radius: 4px; margin-top: 16px; overflow: hidden;
+            width: 300px; height: 6px; background: #1e293b;
+            border-radius: 3px; margin-top: 16px; overflow: hidden;
+            border: 1px solid #334155;
         }
         #progress-bar {
-            height: 100%; background: #34d399; border-radius: 4px;
-            width: 0%; transition: width 0.3s ease;
+            height: 100%; background: linear-gradient(90deg, #059669, #34d399);
+            border-radius: 3px; width: 0%; transition: width 0.3s ease;
         }
 
-        #controls-hint {
-            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
-            background: rgba(15,23,42,0.85); color: #94a3b8; font-size: 12px;
-            padding: 6px 14px; border-radius: 20px; z-index: 10; white-space: nowrap;
-            pointer-events: none;
-        }
-
+        /* ── Pantalla de error ── */
         #error-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #0f172a; display: none; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 50; color: #f87171;
-            text-align: center; padding: 40px;
+            position: absolute; inset: 0;
+            background: #0f172a; display: none; flex-direction: column;
+            justify-content: center; align-items: center;
+            z-index: 50; color: #f87171; text-align: center; padding: 40px;
         }
+
+        /* ── Controles de vista (botones) ── */
+        #view-controls {
+            position: absolute; top: 12px; left: 12px;
+            display: none; flex-direction: column; gap: 6px; z-index: 20;
+        }
+        .view-btn {
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(52,211,153,0.3);
+            color: #94a3b8; font-size: 11px; font-weight: 600;
+            padding: 7px 12px; border-radius: 8px;
+            cursor: pointer; white-space: nowrap;
+            transition: all 0.2s; backdrop-filter: blur(4px);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .view-btn:hover { background: rgba(52,211,153,0.15); color: #34d399; border-color: #34d399; }
+        .view-btn.active { background: rgba(52,211,153,0.2); color: #34d399; border-color: #34d399; }
+
+        /* ── Indicador de brújula / orientación ── */
+        #compass {
+            position: absolute; top: 12px; right: 12px;
+            width: 52px; height: 52px; display: none;
+            z-index: 20; background: rgba(15,23,42,0.8);
+            border-radius: 50%; border: 1px solid rgba(255,255,255,0.1);
+            justify-content: center; align-items: center;
+            backdrop-filter: blur(4px);
+        }
+        #compass-arrow { font-size: 24px; transition: transform 0.1s; }
+
+        /* ── Hint de controles ── */
+        #controls-hint {
+            position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+            background: rgba(15,23,42,0.8); color: #64748b; font-size: 11px;
+            padding: 7px 16px; border-radius: 20px; z-index: 20;
+            white-space: nowrap; pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.07);
+            backdrop-filter: blur(4px); display: none;
+        }
+
+        /* ── Info del modelo ── */
+        #model-info {
+            position: absolute; bottom: 14px; right: 12px;
+            background: rgba(15,23,42,0.8); color: #475569; font-size: 10px;
+            padding: 6px 10px; border-radius: 8px; z-index: 20;
+            display: none; line-height: 1.6;
+            border: 1px solid rgba(255,255,255,0.07);
+            backdrop-filter: blur(4px);
+        }
+        #model-info span { color: #64748b; }
     </style>
 </head>
 <body class="flex flex-col" style="height:100vh;">
@@ -46,7 +92,7 @@
     <header class="bg-emerald-700 text-white shadow-md z-10 relative" style="flex-shrink:0;">
         <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
             <h1 class="text-lg font-bold flex items-center gap-2">
-                <i class="fa-solid fa-cube"></i> Modelo Tridimensional - INVU 2
+                <i class="fa-solid fa-cube"></i> Modelo 3D — INVU 2
             </h1>
             <nav class="space-x-4 text-sm">
                 <a href="index.html" class="hover:text-emerald-200">Inicio</a>
@@ -59,53 +105,88 @@
     </header>
 
     <div id="canvas-container">
+
         <!-- Pantalla de carga -->
         <div id="loading-screen">
-            <i class="fa-solid fa-cube text-5xl mb-4 animate-pulse"></i>
-            <h2 class="text-xl font-bold">Cargando Modelo 3D INVU 2</h2>
+            <i class="fa-solid fa-cube text-5xl mb-5 animate-pulse"></i>
+            <h2 class="text-xl font-bold">Cargando Modelo 3D — INVU 2</h2>
             <p id="loading-text" class="text-slate-400 mt-2 text-sm">Iniciando...</p>
             <div id="progress-bar-bg">
                 <div id="progress-bar"></div>
             </div>
-            <p class="text-slate-500 text-xs mt-4">El modelo puede tardar 1-3 minutos en cargar.<br>Depende de tu velocidad de internet.</p>
+            <p class="text-slate-600 text-xs mt-5 max-w-xs text-center">
+                El modelo puede tardar 1–3 minutos según tu conexión.
+            </p>
         </div>
 
         <!-- Pantalla de error -->
         <div id="error-screen">
             <i class="fa-solid fa-triangle-exclamation text-5xl mb-4"></i>
-            <h2 class="text-xl font-bold mb-2">No se pudo cargar el modelo</h2>
+            <h2 class="text-xl font-bold mb-2">Error al cargar el modelo</h2>
             <p id="error-text" class="text-slate-400 text-sm max-w-md"></p>
-            <p class="text-slate-500 text-xs mt-4">Verifica que los archivos estén publicados en GitHub Pages correctamente.</p>
+        </div>
+
+        <!-- Botones de vista -->
+        <div id="view-controls">
+            <button class="view-btn active" id="btn-aerea" onclick="setView('aerea')">
+                <i class="fa-solid fa-drone"></i> Vista Aérea
+            </button>
+            <button class="view-btn" id="btn-perspectiva" onclick="setView('perspectiva')">
+                <i class="fa-solid fa-cube"></i> Perspectiva
+            </button>
+            <button class="view-btn" id="btn-norte" onclick="setView('norte')">
+                <i class="fa-solid fa-arrow-up"></i> Vista Norte
+            </button>
+            <button class="view-btn" id="btn-cenital" onclick="setView('cenital')">
+                <i class="fa-solid fa-arrow-down"></i> Vista Cenital
+            </button>
+            <hr style="border-color:rgba(255,255,255,0.1); margin:2px 0;">
+            <button class="view-btn" id="btn-auto" onclick="toggleAutoRotate()">
+                <i class="fa-solid fa-rotate"></i> Auto-rotar
+            </button>
+        </div>
+
+        <!-- Brújula -->
+        <div id="compass">
+            <span id="compass-arrow">🧭</span>
         </div>
 
         <!-- Hint de controles -->
-        <div id="controls-hint" style="display:none;">
-            🖱️ Rotar: clic+arrastrar &nbsp;|&nbsp; 🔍 Zoom: rueda &nbsp;|&nbsp; ↕️ Pan: clic derecho+arrastrar
+        <div id="controls-hint">
+            <i class="fa-solid fa-hand-pointer"></i> Rotar: arrastrar &nbsp;·&nbsp;
+            <i class="fa-solid fa-magnifying-glass"></i> Zoom: rueda / pellizcar &nbsp;·&nbsp;
+            <i class="fa-solid fa-up-down-left-right"></i> Mover: clic derecho / dos dedos
+        </div>
+
+        <!-- Info del modelo -->
+        <div id="model-info">
+            <span>Dimensiones:</span> <span id="info-size">—</span><br>
+            <span>Escala:</span> ODM fotogramétrico
         </div>
     </div>
 
     <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
         }
+    }
     </script>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
-        import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+        import { OBJLoader }     from 'three/addons/loaders/OBJLoader.js';
+        import { MTLLoader }     from 'three/addons/loaders/MTLLoader.js';
 
-        const container   = document.getElementById('canvas-container');
+        // ── Elementos UI ──────────────────────────────────────
         const loadingDiv  = document.getElementById('loading-screen');
         const loadingText = document.getElementById('loading-text');
         const progressBar = document.getElementById('progress-bar');
         const errorDiv    = document.getElementById('error-screen');
         const errorText   = document.getElementById('error-text');
-        const controlsHint = document.getElementById('controls-hint');
+        const container   = document.getElementById('canvas-container');
 
         function showError(msg) {
             loadingDiv.style.display = 'none';
@@ -113,146 +194,250 @@
             errorText.textContent = msg;
         }
 
-        // ── Escena ──────────────────────────────────────────────
+        // ── Escena ──────────────────────────────────────────
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0f172a);
-        scene.fog = new THREE.FogExp2(0x0f172a, 0.00005);
+        scene.background = new THREE.Color(0x0d1520);
+        // Niebla sutil para sensación de profundidad
+        scene.fog = new THREE.FogExp2(0x0d1520, 0.00008);
 
-        // ── Cámara ──────────────────────────────────────────────
+        // ── Cámara ──────────────────────────────────────────
         const camera = new THREE.PerspectiveCamera(
-            45,
+            50,
             container.clientWidth / container.clientHeight,
-            0.1,
-            500000
+            1, 100000
         );
 
-        // ── Renderer ────────────────────────────────────────────
+        // ── Renderer ────────────────────────────────────────
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.shadowMap.enabled = false;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
         container.appendChild(renderer.domElement);
 
-        // ── Controles ───────────────────────────────────────────
+        // ── Controles tipo Google Earth ──────────────────────
+        // - Click izquierdo + arrastrar = ORBITAR
+        // - Click derecho + arrastrar  = PAN (desplazar)
+        // - Rueda del mouse            = ZOOM
+        // - Pellizcar (móvil)          = ZOOM
+        // - Dos dedos (móvil)          = ORBITAR / PAN
         const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.screenSpacePanning = false;
-        controls.minDistance = 10;
-        controls.maxDistance = 5000;
-        controls.maxPolarAngle = Math.PI / 1.8; // evitar ir bajo tierra
+        controls.enableDamping    = true;
+        controls.dampingFactor    = 0.08;
+        controls.screenSpacePanning = true;   // pan en el plano de la pantalla (más intuitivo)
+        controls.zoomSpeed        = 1.2;
+        controls.rotateSpeed      = 0.6;
+        controls.panSpeed         = 0.8;
+        controls.autoRotate       = false;
+        controls.autoRotateSpeed  = 0.5;
+        controls.enableSmoothing  = true;
+        // Límites de ángulo polar: desde vista cenital (5°) hasta casi horizontal (80°)
+        controls.minPolarAngle    = THREE.MathUtils.degToRad(5);
+        controls.maxPolarAngle    = THREE.MathUtils.degToRad(82);
 
-        // ── Luces ───────────────────────────────────────────────
-        const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
+        // ── Luces ────────────────────────────────────────────
+        const ambientLight = new THREE.AmbientLight(0xfff4e0, 2.0);
         scene.add(ambientLight);
 
-        const sunLight = new THREE.DirectionalLight(0xfff8e7, 2.0);
-        sunLight.position.set(500, 1000, 300);
+        const sunLight = new THREE.DirectionalLight(0xfff8e7, 2.5);
+        sunLight.position.set(300, 800, 400);
         scene.add(sunLight);
 
-        const fillLight = new THREE.DirectionalLight(0xc7e0ff, 0.8);
-        fillLight.position.set(-300, 400, -200);
+        const fillLight = new THREE.DirectionalLight(0xd0e8ff, 0.6);
+        fillLight.position.set(-400, 300, -200);
         scene.add(fillLight);
 
-        // ── Rutas ───────────────────────────────────────────────
-        // El .mtl y el .obj están en ./assets/models/
-        // Las texturas están en ./assets/models/textures/
-        // MTLLoader.setPath = directorio donde busca el .mtl
-        // MTLLoader.setResourcePath = directorio desde donde resolver map_Kd relativo
+        // ── Dimensiones del modelo (se llenan al cargar) ─────
+        let modelSize = new THREE.Vector3();
+        let maxDim = 1;
+        let isAutoRotating = false;
+
+        // ── Presets de cámara ────────────────────────────────
+        // Se calculan DESPUÉS de cargar el modelo usando maxDim
+        function setView(tipo) {
+            // Desactivar auto-rotate al cambiar vista manualmente
+            if (tipo !== 'auto') {
+                controls.autoRotate = false;
+                isAutoRotating = false;
+                document.getElementById('btn-auto').classList.remove('active');
+            }
+
+            // Desmarcar todos los botones de vista
+            ['aerea','perspectiva','norte','cenital'].forEach(id => {
+                document.getElementById('btn-' + id)?.classList.remove('active');
+            });
+
+            const d = maxDim;
+            let pos, target;
+
+            switch(tipo) {
+                case 'aerea':
+                    // Vista aérea: casi cenital, inclinada ~20° hacia el norte
+                    pos    = new THREE.Vector3( d * 0.15,  d * 0.90,  d * 0.38 );
+                    target = new THREE.Vector3(0, 0, 0);
+                    document.getElementById('btn-aerea').classList.add('active');
+                    break;
+
+                case 'perspectiva':
+                    // Vista isométrica oblicua clásica
+                    pos    = new THREE.Vector3( d * 0.7,  d * 0.7,  d * 0.7 );
+                    target = new THREE.Vector3(0, 0, 0);
+                    document.getElementById('btn-perspectiva').classList.add('active');
+                    break;
+
+                case 'norte':
+                    // Vista desde el frente (sur mirando al norte)
+                    pos    = new THREE.Vector3( 0, d * 0.3,  d * 1.1 );
+                    target = new THREE.Vector3(0, 0, 0);
+                    document.getElementById('btn-norte').classList.add('active');
+                    break;
+
+                case 'cenital':
+                    // Vista exactamente de arriba (ortogonal)
+                    pos    = new THREE.Vector3( 0, d * 1.5,  0.001 );
+                    target = new THREE.Vector3(0, 0, 0);
+                    document.getElementById('btn-cenital').classList.add('active');
+                    break;
+
+                default:
+                    return;
+            }
+
+            // Animación suave hacia la nueva vista
+            animateCameraTo(pos, target, 800);
+        }
+
+        // Exponer setView globalmente para los botones onclick
+        window.setView = setView;
+
+        function toggleAutoRotate() {
+            isAutoRotating = !isAutoRotating;
+            controls.autoRotate = isAutoRotating;
+            const btn = document.getElementById('btn-auto');
+            btn.classList.toggle('active', isAutoRotating);
+        }
+        window.toggleAutoRotate = toggleAutoRotate;
+
+        // ── Interpolación suave de cámara ────────────────────
+        function animateCameraTo(targetPos, targetLook, durationMs) {
+            const startPos  = camera.position.clone();
+            const startLook = controls.target.clone();
+            const startTime = performance.now();
+
+            function easeInOut(t) {
+                return t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+            }
+
+            function step(now) {
+                const t = Math.min((now - startTime) / durationMs, 1);
+                const e = easeInOut(t);
+                camera.position.lerpVectors(startPos, targetPos, e);
+                controls.target.lerpVectors(startLook, targetLook, e);
+                controls.update();
+                if (t < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }
+
+        // ── Carga del Modelo ─────────────────────────────────
         const modelsPath   = './assets/models/';
         const texturesPath = './assets/models/textures/';
-        const mtlFile      = 'odm_textured_model_geo.mtl';
-        const objFile      = 'odm_textured_model_geo.obj';
 
-        // ── Carga de Materiales (.mtl) ───────────────────────────
         loadingText.textContent = 'Cargando materiales (.mtl)...';
 
         const mtlLoader = new MTLLoader();
         mtlLoader.setPath(modelsPath);
-        mtlLoader.setResourcePath(texturesPath); // <-- KEY: texturas en subcarpeta
+        mtlLoader.setResourcePath(texturesPath);
 
         mtlLoader.load(
-            mtlFile,
+            'odm_textured_model_geo.mtl',
             (materials) => {
                 materials.preload();
-                loadingText.textContent = 'Materiales cargados. Descargando geometría (.obj)...';
+                loadingText.textContent = 'Geometría descargando (.obj)...';
 
-                // ── Carga del Objeto (.obj) ──────────────────────
                 const objLoader = new OBJLoader();
                 objLoader.setMaterials(materials);
                 objLoader.setPath(modelsPath);
 
                 objLoader.load(
-                    objFile,
+                    'odm_textured_model_geo.obj',
                     (object) => {
-                        // ── Recentrar el modelo en el origen ────
-                        // Los modelos ODM tienen coordenadas UTM absolutas (~670000, 1176000, ...)
-                        // Calculamos el bounding box y desplazamos al centro.
-                        const box = new THREE.Box3().setFromObject(object);
+                        // ── Recentrar al origen ──────────────
+                        const box    = new THREE.Box3().setFromObject(object);
                         const center = box.getCenter(new THREE.Vector3());
                         const size   = box.getSize(new THREE.Vector3());
 
-                        // Mover el objeto para que su centro quede en (0, 0, 0)
-                        object.position.sub(center);
-
-                        // Asegurarse de que el suelo quede en y=0
-                        object.position.y += size.y / 2;
-
+                        // Mover al origen y poner el suelo en y = 0
+                        object.position.set(-center.x, -box.min.y, -center.z);
                         scene.add(object);
 
-                        // ── Posicionar cámara ────────────────────
-                        const maxDim = Math.max(size.x, size.y, size.z);
-                        const dist   = maxDim * 1.2; // distancia cómoda
+                        modelSize.copy(size);
+                        maxDim = Math.max(size.x, size.z); // usar dimensión horizontal
 
-                        camera.position.set(dist * 0.6, dist * 0.8, dist * 0.6);
+                        // Ajustar distancias del control al modelo real
+                        controls.minDistance = maxDim * 0.005;
+                        controls.maxDistance = maxDim * 4.0;
+
+                        // ── Vista inicial: aérea inclinada ~~~
+                        // Casi cenital (~20° de inclinación) mirando al sur
+                        const d = maxDim;
+                        camera.position.set( d * 0.15,  d * 0.90,  d * 0.38 );
                         camera.lookAt(0, 0, 0);
-
                         controls.target.set(0, 0, 0);
-                        controls.minDistance = maxDim * 0.01;
-                        controls.maxDistance = maxDim * 5;
                         controls.update();
 
-                        // Ocultar loading, mostrar hint
+                        // ── Actualizar UI ────────────────────
                         loadingDiv.style.display = 'none';
-                        controlsHint.style.display = 'block';
+                        document.getElementById('view-controls').style.display = 'flex';
+                        document.getElementById('compass').style.display = 'flex';
+                        document.getElementById('controls-hint').style.display = 'block';
+                        document.getElementById('model-info').style.display = 'block';
+                        document.getElementById('info-size').textContent =
+                            `${size.x.toFixed(0)} × ${size.z.toFixed(0)} m`;
 
-                        console.log(`Modelo cargado. Tamaño: ${size.x.toFixed(0)}m × ${size.y.toFixed(0)}m × ${size.z.toFixed(0)}m`);
+                        console.log(`✅ Modelo cargado: ${size.x.toFixed(0)}m × ${size.z.toFixed(0)}m | Altura: ${size.y.toFixed(0)}m`);
                     },
                     (xhr) => {
-                        // Progreso de descarga del .obj
                         if (xhr.lengthComputable) {
                             const pct = Math.round((xhr.loaded / xhr.total) * 100);
-                            loadingText.textContent = `Descargando modelo: ${pct}% (${(xhr.loaded/1048576).toFixed(1)} MB)`;
                             progressBar.style.width = pct + '%';
+                            loadingText.textContent = `Descargando: ${pct}% — ${(xhr.loaded/1048576).toFixed(1)} MB`;
                         } else {
-                            const mb = (xhr.loaded / 1048576).toFixed(1);
-                            loadingText.textContent = `Descargando modelo: ${mb} MB recibidos...`;
+                            loadingText.textContent = `Recibiendo: ${(xhr.loaded/1048576).toFixed(1)} MB...`;
                         }
                     },
                     (err) => {
-                        console.error('Error al cargar .obj:', err);
-                        showError(`No se pudo cargar el archivo de geometría (${objFile}). Verifica que el archivo exista en assets/models/ y esté publicado en GitHub Pages.`);
+                        showError('No se pudo cargar odm_textured_model_geo.obj. Verifica que el archivo esté publicado en GitHub Pages.');
+                        console.error(err);
                     }
                 );
             },
             undefined,
             (err) => {
-                console.error('Error al cargar .mtl:', err);
-                showError(`No se pudo cargar el archivo de materiales (${mtlFile}). Verifica que el archivo exista en assets/models/ y esté publicado en GitHub Pages.`);
+                showError('No se pudo cargar odm_textured_model_geo.mtl. Verifica que el archivo esté publicado en GitHub Pages.');
+                console.error(err);
             }
         );
 
-        // ── Resize ──────────────────────────────────────────────
+        // ── Brújula ─────────────────────────────────────────
+        // Rota el emoji de brújula según el azimut de la cámara
+        function updateCompass() {
+            const angle = controls.getAzimuthalAngle();
+            document.getElementById('compass-arrow').style.transform =
+                `rotate(${-angle * (180/Math.PI)}deg)`;
+        }
+
+        // ── Resize ──────────────────────────────────────────
         window.addEventListener('resize', () => {
             camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(container.clientWidth, container.clientHeight);
         });
 
-        // ── Loop de animación ───────────────────────────────────
+        // ── Loop de renderizado ──────────────────────────────
         function animate() {
             requestAnimationFrame(animate);
-            controls.update();
+            controls.update(); // necesario para damping y auto-rotate
+            updateCompass();
             renderer.render(scene, camera);
         }
         animate();
