@@ -94,6 +94,6 @@ Invu2-Verde/
 
 ## 👥 Créditos
 
-**Desarrollado por:** ABC Geomática Agrícola SRL  
-**Levantamiento aerofotogramétrico:** ABC Geomática Agrícola SRL (13 de Octubre, 2026)  
+**Desarrollado por:** oasotob@gmail.com
+**Levantamiento aerofotogramétrico:** (12 de Octubre, 2026)  
 **Procesamiento:** OpenDroneMap & QGIS  
