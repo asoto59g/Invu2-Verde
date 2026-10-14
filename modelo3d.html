@@ -41,13 +41,13 @@
         /* Barra de navegación inferior tipo Sketchfab */
         .sketchfab-bar {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.88);
+            background: rgba(15, 23, 42, 0.92);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 30px;
-            padding: 5px 12px;
+            padding: 5px 14px;
             display: none; align-items: center; gap: 8px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
             z-index: 20;
         }
 
@@ -67,34 +67,34 @@
 
         .sf-btn:hover {
             color: #ffffff;
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.1);
         }
 
         .sf-btn.active {
             color: #34d399;
-            background: rgba(16, 185, 129, 0.15);
+            background: rgba(16, 185, 129, 0.2);
         }
 
-        /* Hint de controles */
+        /* Tarjeta de ayuda con instrucciones detalladas (PC y Móvil) */
         #help-card {
             position: absolute; top: 16px; left: 16px;
-            background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #cbd5e1; font-size: 11px; line-height: 1.6;
-            padding: 10px 14px; border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            display: none; z-index: 20; max-width: 270px;
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #cbd5e1; font-size: 11px; line-height: 1.5;
+            padding: 12px 16px; border-radius: 12px;
+            box-shadow: 0 6px 25px rgba(0,0,0,0.45);
+            display: none; z-index: 30; max-width: 290px;
         }
 
         /* Indicador de pivote al hacer doble clic */
         #pivot-indicator {
-            position: absolute; width: 14px; height: 14px;
+            position: absolute; width: 16px; height: 16px;
             border: 2px solid #34d399; border-radius: 50%;
             transform: translate(-50%, -50%) scale(0);
             pointer-events: none; z-index: 30; opacity: 0;
             transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.3s ease;
-            box-shadow: 0 0 10px #10b981;
+            box-shadow: 0 0 12px #10b981;
         }
     </style>
 </head>
@@ -139,15 +139,40 @@
             <p id="error-text" class="text-slate-400 text-xs max-w-md"></p>
         </div>
 
-        <!-- Tarjeta de ayuda tipo Sketchfab -->
+        <!-- Tarjeta de instrucciones detalladas (Mouse y Teléfono) -->
         <div id="help-card">
-            <div class="font-bold text-emerald-400 mb-1 flex items-center gap-1.5">
-                <i class="fa-solid fa-circle-info"></i> Navegación 3D
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-700/80">
+                <span class="font-bold text-emerald-400 flex items-center gap-1.5 text-xs">
+                    <i class="fa-solid fa-gamepad"></i> Controles del Modelo
+                </span>
+                <button type="button" onclick="toggleHelp()" class="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded bg-slate-800" title="Cerrar ventana">✕</button>
             </div>
-            <div>• <b>Arrastrar izq / 1 dedo:</b> Rotar derecha/izq y arriba/abajo</div>
-            <div>• <b>Arrastrar der / 2 dedos:</b> Desplazar (Pan)</div>
-            <div>• <b>Rueda / Pellizco:</b> Zoom continuo</div>
-            <div>• <b>Doble clic en superficie:</b> Centrar pivote aquí</div>
+
+            <!-- Sección Ratón -->
+            <div class="mb-3">
+                <div class="text-[10px] uppercase font-bold text-sky-400 tracking-wider mb-1 flex items-center gap-1">
+                    <i class="fa-solid fa-computer-mouse"></i> Ratón (PC)
+                </div>
+                <div class="space-y-1 text-[11px] text-slate-300">
+                    <div>• <b>Botón Izquierdo:</b> Rotar sobre el eje central</div>
+                    <div>• <b>Botón Derecho:</b> Desplazar / Mover vista (Pan)</div>
+                    <div>• <b>Ruedita:</b> Zoom acercar / alejar</div>
+                    <div>• <b>Doble Clic:</b> Reubicar punto de giro en superficie</div>
+                </div>
+            </div>
+
+            <!-- Sección Táctil Teléfono -->
+            <div>
+                <div class="text-[10px] uppercase font-bold text-emerald-400 tracking-wider mb-1 flex items-center gap-1">
+                    <i class="fa-solid fa-mobile-screen-button"></i> Táctil (Teléfono)
+                </div>
+                <div class="space-y-1 text-[11px] text-slate-300">
+                    <div>• <b>1 Dedo:</b> Rotar en cualquier dirección</div>
+                    <div>• <b>2 Dedos arrastrar:</b> Desplazamiento (Pan)</div>
+                    <div>• <b>2 Dedos pellizcar:</b> Zoom acercar / alejar</div>
+                    <div>• <b>Doble Toque:</b> Reubicar pivote en el punto</div>
+                </div>
+            </div>
         </div>
 
         <!-- Punto indicador de pivote -->
@@ -165,8 +190,8 @@
             <button class="sf-btn" id="btn-autorotate" onclick="toggleAutoRotate()" title="Girar automáticamente">
                 <i class="fa-solid fa-rotate"></i> Auto-Giro
             </button>
-            <button class="sf-btn" id="btn-help-toggle" onclick="toggleHelp()" title="Ayuda de controles">
-                <i class="fa-solid fa-question"></i>
+            <button class="sf-btn" id="btn-help-toggle" onclick="toggleHelp()" title="Ver instrucciones de controles">
+                <i class="fa-solid fa-question"></i> Ayuda
             </button>
         </div>
     </div>
@@ -224,29 +249,31 @@
         renderer.toneMappingExposure = 1.15;
         container.appendChild(renderer.domElement);
 
-        // ── 4. Controles al estilo SKETCHFAB ─────────────────
+        // ── 4. Configuración de Controles (Sketchfab) ────────
+        // Rueda = Zoom | Botón Izquierdo = Rotación eje Z/central | Botón Derecho = Desplazamiento
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.07;
-        controls.screenSpacePanning = true; // Desplazamiento intuitivo en el plano de pantalla
-        controls.zoomSpeed = 1.15;
+        controls.screenSpacePanning = true; // Desplazamiento (Pan) en el plano de la pantalla
+        controls.enableZoom = true;
+        controls.zoomSpeed = 1.2;
         controls.rotateSpeed = 0.75;
         controls.panSpeed = 0.85;
 
-        // Mapeo idéntico a Sketchfab:
-        // Clic izq = Orbitar, Clic central = Zoom, Clic der = Desplazar (Pan)
+        // Asignación explícita de botones del ratón:
         controls.mouseButtons = {
-            LEFT: THREE.MOUSE.ROTATE,
-            MIDDLE: THREE.MOUSE.DOLLY,
-            RIGHT: THREE.MOUSE.PAN
-        };
-        // Táctil en teléfono: 1 dedo = rotar (horizontal/vertical), 2 dedos = zoom y pan simultáneo
-        controls.touches = {
-            ONE: THREE.TOUCH.ROTATE,
-            TWO: THREE.TOUCH.DOLLY_PAN
+            LEFT: THREE.MOUSE.ROTATE,    // Botón Izquierdo: Rotación orbital
+            MIDDLE: THREE.MOUSE.DOLLY,   // Clic rueda: Zoom
+            RIGHT: THREE.MOUSE.PAN       // Botón Derecho: Desplazamiento (Pan)
         };
 
-        // Permite desde vista cenital vertical (0°) hasta casi rasante al suelo (~85°)
+        // Asignación explícita de gestos táctiles en teléfono:
+        controls.touches = {
+            ONE: THREE.TOUCH.ROTATE,     // 1 Dedo: Rotar en cualquier dirección
+            TWO: THREE.TOUCH.DOLLY_PAN   // 2 Dedos: Zoom (pellizco) y Desplazamiento simultáneo
+        };
+
+        // Rango de inclinación: desde vista cenital perpendicular (0°) hasta casi rasante al suelo (~85°)
         controls.minPolarAngle = 0;
         controls.maxPolarAngle = Math.PI / 2.05;
 
@@ -293,22 +320,15 @@
                     (object) => {
                         loadedMesh = object;
 
-                        // ── CORRECCIÓN FUNDAMENTAL DE COORDENADAS ──
-                        // El modelo ODM tiene coordenadas topocéntricas donde:
-                        // X = Este (737m), Y = Norte (850m), Z = Altitud/Elevación (37m, vertical).
-                        // En Three.js la vertical es Y. Rotamos -90° en X para que el terreno
-                        // quede acostado naturalmente en el plano horizontal X-Z con la elevación en Y:
+                        // ── CORRECCIÓN DE EJES (Z-up ODM a Y-up Three.js) ──
                         object.rotation.x = -Math.PI / 2;
                         object.updateMatrixWorld(true);
 
                         // ── PIVOTE EN EL CENTRO EXACTO (0, 0, 0) ──
-                        // Calculamos el bounding box con la rotación aplicada
                         const box = new THREE.Box3().setFromObject(object);
                         const center = box.getCenter(new THREE.Vector3());
                         const size = box.getSize(new THREE.Vector3());
 
-                        // Centramos el objeto EXACTAMENTE en su centro geométrico en los 3 ejes
-                        // para que el giro ocurra sobre su verdadero centro de masa y no sobre un borde:
                         object.position.x = -center.x;
                         object.position.y = -center.y;
                         object.position.z = -center.z;
@@ -318,14 +338,10 @@
                         controls.minDistance = maxHoriz * 0.05;
                         controls.maxDistance = maxHoriz * 5.0;
 
-                        // ── VISTA INICIAL DE PLANTA (COMO LA IMAGEN ADJUNTA) ──
-                        // Calculamos la distancia exacta de la cámara para que el barrio
-                        // ocupe la pantalla perfectamente con zoom óptimo
+                        // ── VISTA INICIAL DE PLANTA (CENITAL) ──
                         const fovRad = THREE.MathUtils.degToRad(camera.fov);
                         optimalDistance = (maxHoriz / 2) / Math.tan(fovRad / 2) * 1.05;
 
-                        // Se ubica directamente arriba en el eje Y, con un offset infinitesimal en Z
-                        // (0.001) para definir la orientación y evitar singularidad matemática en OrbitControls:
                         initialCamPos.set(0, optimalDistance, 0.001);
                         initialTarget.set(0, 0, 0);
 
@@ -334,17 +350,10 @@
                         camera.lookAt(initialTarget);
                         controls.update();
 
-                        // Ocultar pantalla de carga y mostrar controles Sketchfab
+                        // Ocultar carga y mostrar controles Sketchfab
                         loadingDiv.style.display = 'none';
                         sfBar.style.display = 'flex';
                         helpCard.style.display = 'block';
-
-                        // Ocultar tarjeta de ayuda tras 6 segundos
-                        setTimeout(() => {
-                            helpCard.style.opacity = '0';
-                            helpCard.style.transition = 'opacity 0.8s ease';
-                            setTimeout(() => { helpCard.style.display = 'none'; helpCard.style.opacity = '1'; }, 800);
-                        }, 6000);
                     },
                     (xhr) => {
                         if (xhr.lengthComputable) {
@@ -368,16 +377,16 @@
             }
         );
 
-        // ── 8. DOBLE CLIC TIPO SKETCHFAB (Centrar pivote en superficie) ──
+        // ── 8. REUBICAR PIVOTE (DOBLE CLIC PC / DOBLE TOQUE TELÉFONO) ──
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
 
-        container.addEventListener('dblclick', (e) => {
+        function handleCenterOnPoint(clientX, clientY) {
             if (!loadedMesh) return;
 
             const rect = renderer.domElement.getBoundingClientRect();
-            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObject(loadedMesh, true);
@@ -385,8 +394,8 @@
             if (intersects.length > 0) {
                 const hitPoint = intersects[0].point;
 
-                pivotIndicator.style.left = e.clientX + 'px';
-                pivotIndicator.style.top = e.clientY + 'px';
+                pivotIndicator.style.left = clientX + 'px';
+                pivotIndicator.style.top = clientY + 'px';
                 pivotIndicator.style.opacity = '1';
                 pivotIndicator.style.transform = 'translate(-50%, -50%) scale(1.4)';
 
@@ -397,6 +406,22 @@
 
                 smoothLookAt(hitPoint, 550);
             }
+        }
+
+        // Evento doble clic para ratón en PC
+        container.addEventListener('dblclick', (e) => {
+            handleCenterOnPoint(e.clientX, e.clientY);
+        });
+
+        // Evento doble toque para pantalla táctil en teléfono móvil
+        let lastTouchTime = 0;
+        container.addEventListener('touchend', (e) => {
+            const now = performance.now();
+            if (now - lastTouchTime < 300 && e.changedTouches.length === 1) {
+                const touch = e.changedTouches[0];
+                handleCenterOnPoint(touch.clientX, touch.clientY);
+            }
+            lastTouchTime = now;
         });
 
         function smoothLookAt(newTarget, duration) {
@@ -446,7 +471,6 @@
             document.getElementById('btn-autorotate').classList.remove('active');
             document.getElementById('btn-reset').classList.remove('active');
             document.getElementById('btn-persp').classList.add('active');
-            // Vista perspectiva oblicua clásica a 45°
             const perspPos = new THREE.Vector3(0, optimalDistance * 0.65, optimalDistance * 0.65);
             smoothFlyTo(perspPos, new THREE.Vector3(0, 0, 0), 750);
         };
